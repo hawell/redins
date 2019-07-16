@@ -1,0 +1,97 @@
+variables:
+  DOCKER_DRIVER: overlay
+services:
+    - labreg.arvan.me/docker:dind
+before_script:
+    - ls
+    - pwd
+    - export GOPATH=/root/go
+    - export PATH=$PATH:/opt/go/bin
+    - mkdir -p $GOPATH/src/arvancloud/
+    - ln -sf `pwd` $GOPATH/src/arvancloud/redins
+
+stages:
+    - test-lab
+    - test-production
+    - lab-deploy
+    - deploy-production
+
+test-lab:
+    stage: test-lab
+    image: golang:latest
+    services:
+        - name: redis:latest
+          alias: redis
+    script:
+        - echo test
+        - cd $GOPATH/src/arvancloud/redins
+        - go get
+        - go build
+        - go test ./...
+    artifacts:
+        paths:
+        - ./redins
+    only:
+        - dev
+
+test-production:
+    stage: test-production
+    image: golang:latest
+    services:
+        - name: redis:latest
+          alias: redis
+    script:
+        - echo test
+        - cd $GOPATH/src/arvancloud/redins
+        - go get
+        - go build
+        - go test ./...
+    artifacts:
+        paths:
+        - ./redins
+    only:
+        - master
+    only:
+        - tags
+
+image-build:
+    stage: lab-deploy
+    image: docker:latest
+    dependencies:
+    - test-lab
+    script:
+        - echo deploy-lab
+        - docker login labreg.arvan.me -u $REPO_USR -p $REPO_PWD
+        - docker build . -t labreg.arvan.me/arvan_redins:$CI_PIPELINE_ID -t labreg.arvan.me/arvan_redins:latest
+        - docker push labreg.arvan.me/arvan_redins:$CI_PIPELINE_ID 
+        - docker push labreg.arvan.me/arvan_redins:latest
+    only:
+        - dev
+
+salt-apply:
+    image: labreg.arvan.me/ssh-client
+    stage: lab-deploy
+    script:
+        - mkdir -p ~/.ssh
+        - chmod 700 ~/.ssh
+        - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+        - echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_rsa
+        - chmod 600 ~/.ssh/id_rsa
+        - ssh -p 65422 gitlab-deploy@148.251.239.12 sudo salt-call state.apply docker/redins
+    only:
+        - dev
+
+deploy-production:
+    stage: deploy-production
+    image: docker:latest
+    dependencies:
+    - test-production
+    script:
+        - echo deploy-production
+        - docker login reg.arvan.me -u $PROD_REPO_USR -p $PROD_REPO_PWD
+        - docker build . -t reg.arvan.me/arvan_redins:${CI_COMMIT_TAG}-production 
+        - docker push reg.arvan.me/arvan_redins:${CI_COMMIT_TAG}-production 
+    only:
+        - master
+    only:
+        - tags

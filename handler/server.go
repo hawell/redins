@@ -3,23 +3,23 @@ package handler
 import (
 	"strconv"
 
-	"github.com/miekg/dns"
 	"crypto/tls"
 	"crypto/x509"
+	"github.com/miekg/dns"
 	"io/ioutil"
 )
 
 type TlsConfig struct {
-	Enable   bool `json:"enable"`
+	Enable   bool   `json:"enable"`
 	CertPath string `json:"cert_path"`
 	KeyPath  string `json:"key_path"`
 	CaPath   string `json:"ca_path"`
 }
 
 type ServerConfig struct {
-	Ip       string `json:"ip,omitempty"`
-	Port     int    `json:"port,omitempty"`
-	Protocol string `json:"protocol,omitempty"`
+	Ip       string    `json:"ip,omitempty"`
+	Port     int       `json:"port,omitempty"`
+	Protocol string    `json:"protocol,omitempty"`
 	Tls      TlsConfig `json:"tls,omitempty"`
 }
 

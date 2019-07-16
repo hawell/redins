@@ -272,7 +272,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 		}
 	}
 
-	if 	auth && state.Do() && originalRecord != nil && originalRecord.Zone.Config.DnsSec {
+	if auth && state.Do() && originalRecord != nil && originalRecord.Zone.Config.DnsSec {
 		switch res {
 		case dns.RcodeSuccess:
 			if len(answers) == 0 {
@@ -285,7 +285,6 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 		answers = Sign(answers, qname, originalRecord)
 		authority = Sign(authority, qname, originalRecord)
 	}
-
 
 	h.LogRequest(logData, requestStartTime, res)
 	m := new(dns.Msg)
@@ -786,12 +785,12 @@ func (h *DnsRequestHandler) LoadZone(zone string) *Zone {
 
 	z = func() *Zone {
 		if z.Config.DnsSec {
-			z.ZSK = h.loadKey("redins:zones:" + z.Name + ":zsk:pub", "redins:zones:" + z.Name + ":zsk:priv")
+			z.ZSK = h.loadKey("redins:zones:"+z.Name+":zsk:pub", "redins:zones:"+z.Name+":zsk:priv")
 			if z.ZSK == nil {
 				z.Config.DnsSec = false
 				return z
 			}
-			z.KSK = h.loadKey("redins:zones:" + z.Name + ":ksk:pub", "redins:zones:" + z.Name + ":ksk:priv")
+			z.KSK = h.loadKey("redins:zones:"+z.Name+":ksk:pub", "redins:zones:"+z.Name+":ksk:priv")
 			if z.KSK == nil {
 				z.Config.DnsSec = false
 				return z

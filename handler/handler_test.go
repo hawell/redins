@@ -1856,10 +1856,10 @@ var cnameNoAuthEntries = [][]string{
 var cnameNoAuthTests = []test.Case{
 	{
 		Qname: "w1.auth.zon.", Qtype: dns.TypeA,
-		Answer: []dns.RR {
-		    test.CNAME("w1.auth.zon.	300	IN	CNAME	w2.auth.zon."),
-		    test.CNAME("w2.auth.zon.	300	IN	CNAME	noauth.zon."),
-        },
+		Answer: []dns.RR{
+			test.CNAME("w1.auth.zon.	300	IN	CNAME	w2.auth.zon."),
+			test.CNAME("w2.auth.zon.	300	IN	CNAME	noauth.zon."),
+		},
 		Rcode: dns.RcodeSuccess,
 	},
 }
@@ -1870,7 +1870,7 @@ func TestCNameNoAuth(t *testing.T) {
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
 	h.Redis.SAdd("redins:zones", cnameNoAuthZone)
-	h.Redis.Set("redins:zones:" + cnameNoAuthZone + ":config", "{\"cname_flattening\": false}")
+	h.Redis.Set("redins:zones:"+cnameNoAuthZone+":config", "{\"cname_flattening\": false}")
 	for _, cmd := range cnameNoAuthEntries {
 		err := h.Redis.HSet("redins:zones:"+cnameNoAuthZone, cmd[0], cmd[1])
 		if err != nil {
