@@ -730,37 +730,13 @@ func TestWeight(t *testing.T) {
 	}
 }
 
-var anameZones = []string{
-	"arvancloud.com.", "arvan.an.",
-}
+var anameZone = "arvancloud.com."
 
-var anameConfig = []string{
-	`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.arvancloud.com.","ns":"ns1.arvancloud.com.","refresh":44,"retry":55,"expire":66}}`,
-	`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.arvan.an.","ns":"ns1.arvan.an.","refresh":44,"retry":55,"expire":66}}`,
-}
+var anameConfig = `{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.arvancloud.com.","ns":"ns1.arvancloud.com.","refresh":44,"retry":55,"expire":66}}`
 
-var anameEntries = [][][]string{
-	{
-		{"@",
-			`{"aname":{"location":"aname.arvan.an."}}`,
-		},
-		{"upstream",
-			`{"aname":{"location":"google.com."}}`,
-		},
-		{"upstream2",
-			`{"aname":{"location":"aname2.arvan.an."}}`,
-		},
-	},
-	{
-		{"aname",
-			`{"a":{"ttl":300, "records":[{"ip":"6.5.6.5"}]}, "aaaa":{"ttl":300, "records":[{"ip":"::1"}]}}`,
-		},
-		{"aname2",
-			`{
-            "a":{"ttl":300, "filter": {"count":"single", "order": "weighted", "geo_filter":"none"}, "records":[{"ip":"1.1.1.1", "weight":1},{"ip":"2.2.2.2", "weight":5},{"ip":"3.3.3.3", "weight":10}]},
-            "aaaa":{"ttl":300, "filter": {"count":"single", "order": "weighted", "geo_filter":"none"}, "records":[{"ip":"2001:db8::1", "weight":1},{"ip":"2001:db8::2", "weight":5},{"ip":"2001:db8::3", "weight":10}]}
-            }`,
-		},
+var anameEntries = [][]string{
+	{"@",
+		`{"aname":{"location":"dns.msftncsi.com."}}`,
 	},
 }
 
@@ -768,13 +744,13 @@ var anameTestCases = []test.Case{
 	{
 		Qname: "arvancloud.com.", Qtype: dns.TypeA,
 		Answer: []dns.RR{
-			test.A("arvancloud.com. 300 IN A 6.5.6.5"),
+			test.A("arvancloud.com. 303 IN A 131.107.255.255"),
 		},
 	},
 	{
 		Qname: "arvancloud.com.", Qtype: dns.TypeAAAA,
 		Answer: []dns.RR{
-			test.AAAA("arvancloud.com. 300 IN AAAA ::1"),
+			test.AAAA("arvancloud.com. 303 IN AAAA fd3e:4f5a:5b81::1"),
 		},
 	},
 }
@@ -784,17 +760,15 @@ func TestANAME(t *testing.T) {
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
-	for i, zone := range anameZones {
-		h.Redis.SAdd("redins:zones", zone)
-		for _, cmd := range anameEntries[i] {
-			err := h.Redis.HSet("redins:zones:"+zone, cmd[0], cmd[1])
-			if err != nil {
-				log.Printf("[ERROR] cannot connect to redis: %s", err)
-				t.Fail()
-			}
+	h.Redis.SAdd("redins:zones", anameZone)
+	for _, cmd := range anameEntries {
+		err := h.Redis.HSet("redins:zones:"+anameZone, cmd[0], cmd[1])
+		if err != nil {
+			log.Printf("[ERROR] cannot connect to redis: %s", err)
+			t.Fail()
 		}
-		h.Redis.Set("redins:zones:"+zone+":config", anameConfig[i])
 	}
+	h.Redis.Set("redins:zones:"+anameZone+":config", anameConfig)
 	h.LoadZones()
 
 	for _, tc := range anameTestCases {
@@ -809,94 +783,6 @@ func TestANAME(t *testing.T) {
 		if test.SortAndCheck(resp, tc) != nil {
 			t.Fail()
 		}
-	}
-}
-
-func TestWeightedANAME(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
-
-	h := NewHandler(&handlerTestConfig)
-	h.Redis.Del("*")
-	for i, zone := range anameZones {
-		h.Redis.SAdd("redins:zones", zone)
-		for _, cmd := range anameEntries[i] {
-			err := h.Redis.HSet("redins:zones:"+zone, cmd[0], cmd[1])
-			if err != nil {
-				log.Printf("[ERROR] cannot connect to redis: %s", err)
-				t.Fail()
-			}
-		}
-		h.Redis.Set("redins:zones:"+zone+":config", anameConfig[i])
-	}
-	h.LoadZones()
-
-	tc := test.Case{
-		Qname: "upstream2.arvancloud.com.", Qtype: dns.TypeA,
-	}
-	tc2 := test.Case{
-		Qname: "upstream2.arvancloud.com.", Qtype: dns.TypeAAAA,
-	}
-	ip1 := 0
-	ip2 := 0
-	ip3 := 0
-	for i := 0; i < 1000; i++ {
-		r := tc.Msg()
-		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		h.HandleRequest(&state)
-
-		resp := w.Msg
-		if resp.Rcode != dns.RcodeSuccess {
-			t.Fail()
-		}
-		if len(resp.Answer) == 0 {
-			t.Fail()
-		}
-		a := resp.Answer[0].(*dns.A)
-		switch a.A.String() {
-		case "1.1.1.1":
-			ip1++
-		case "2.2.2.2":
-			ip2++
-		case "3.3.3.3":
-			ip3++
-		default:
-			t.Fail()
-		}
-	}
-	if !(ip1 < ip2 && ip2 < ip3) {
-		t.Fail()
-	}
-	ip61 := 0
-	ip62 := 0
-	ip63 := 0
-	for i := 0; i < 1000; i++ {
-		r := tc2.Msg()
-		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		h.HandleRequest(&state)
-
-		resp := w.Msg
-		if resp.Rcode != dns.RcodeSuccess {
-			t.Fail()
-		}
-		if len(resp.Answer) == 0 {
-			t.Fail()
-		}
-		aaaa := resp.Answer[0].(*dns.AAAA)
-		switch aaaa.AAAA.String() {
-		case "2001:db8::1":
-			ip61++
-		case "2001:db8::2":
-			ip62++
-		case "2001:db8::3":
-			ip63++
-		default:
-			t.Fail()
-		}
-	}
-	if !(ip61 < ip62 && ip62 < ip63) {
-		t.Fail()
 	}
 }
 
