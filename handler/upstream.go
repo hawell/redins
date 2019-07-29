@@ -64,6 +64,9 @@ func (u *Upstream) Query(location string, qtype uint16) ([]dns.RR, int) {
 			logger.Default.Errorf("failed to retrieve record %s from upstream %s : %s", location, c.connectionStr, err)
 			continue
 		}
+		if r.Rcode != dns.RcodeSuccess {
+			logger.Default.Errorf("upstream error response : %s for %s", dns.RcodeToString[r.Rcode], location)
+		}
 		if len(r.Answer) == 0 {
 			return []dns.RR{}, dns.RcodeNameError
 		}
