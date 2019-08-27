@@ -13,19 +13,19 @@ import (
 var benchZone = "bench.zon."
 
 var benchEntries = [][]string{
-		{
-			"www",
-			`{
+	{
+		"www",
+		`{
 				"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]},
 				"aaaa":{"ttl":300, "records":[{"ip":"::1"}]},
 			}`,
-		},
-		{
-			"www2",
-			`{
+	},
+	{
+		"www2",
+		`{
 				"cname":{"ttl":300, "host":"www.bench.zon."},
 			}`,
-		},
+	},
 }
 
 var h *DnsRequestHandler
