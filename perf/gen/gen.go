@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"github.com/miekg/dns"
 	"math/rand"
 	"os"
 	"time"
@@ -42,6 +43,7 @@ func RandomString(n int) string {
 func main() {
 	zonesPtr := flag.Int("zones", 10, "number of zones")
 	entriesPtr := flag.Int("entries", 100, "number of entries per zone")
+	typePtr := flag.String("type", "a", "record type")
 	// missChancePtr := flag.Int("miss", 30, "miss chance")
 
 	redisAddrPtr := flag.String("addr", "localhost:6379", "redis address")
@@ -68,17 +70,17 @@ func main() {
 	wq := bufio.NewWriter(fq)
 
 	for i := 0; i < *zonesPtr; i++ {
+		fmt.Println("zone :", i)
 		zoneName := RandomString(15) + suffix
 		fz, err := os.Create("../" + zoneName)
 		if err != nil {
-			fmt.Println("cannot open file " + zoneName)
+			fmt.Println("cannot open file "+zoneName, " : ", err)
 			return
 		}
-		defer fz.Close()
 		con.Do("SADD", "redins:zones", zoneName)
 		wz := bufio.NewWriter(fz)
 		wz.WriteString("$ORIGIN " + zoneName + "\n" +
-			"$TTL 86400\n\n" +
+			"$TTL 300\n\n" +
 			"@       SOA ns1 hostmaster (\n" +
 			"1      ; serial\n" +
 			"7200   ; refresh\n" +
@@ -90,16 +92,51 @@ func main() {
 			"ns1 A 1.2.3.4\n\n")
 
 		for j := 0; j < *entriesPtr; j++ {
-			location := RandomString(15)
-			ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256))
 
-			con.Do("HSET", "redins:zones:"+zoneName, location, `{"a":{"ttl":300, "records":[{"ip":"`+ip+`"}]}}`)
+			fmt.Println("record :", j)
+			switch *typePtr {
+			case "cname":
+				location1 := RandomString(15)
+				location2 := RandomString(15)
 
-			wq.WriteString(location + "." + zoneName + " " + ip + "\n")
+				con.Do("HSET", "redins:zones:"+zoneName, location1, `{"cname":{"ttl":300, "host":"`+location2+"."+zoneName+`."}}`)
+				ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256))
 
-			wz.WriteString(location + " A " + ip + "\n")
+				con.Do("HSET", "redins:zones:"+zoneName, location2, `{"a":{"ttl":300, "records":[{"ip":"`+ip+`"}]}}`)
+
+				wq.WriteString(fmt.Sprintf("%s.%s %d %d %s\n", location1, zoneName, dns.TypeA, dns.RcodeSuccess, ip))
+
+				wz.WriteString(location1 + " CNAME " + location2 + "\n")
+				wz.WriteString(location2 + " A " + ip + "\n")
+
+			case "txt":
+				location := RandomString(15)
+				txt := RandomString(200)
+
+				con.Do("HSET", "redins:zones:"+zoneName, location, `{"txt":{"ttl":300, "records:{"text":"`+txt+`"}"}}`)
+
+				wq.WriteString(fmt.Sprintf("%s.%s %d %d %s\n", location, zoneName, dns.TypeTXT, dns.RcodeSuccess, txt))
+				wz.WriteString(location + ` TXT "` + txt + `"`)
+
+			case "nxdomain":
+				location := RandomString(15)
+				wq.WriteString(fmt.Sprintf("%s.%s %d %d\n", location, zoneName, dns.TypeA, dns.RcodeNameError))
+
+			case "a":
+				fallthrough
+			default:
+				location := RandomString(15)
+
+				ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256))
+
+				con.Do("HSET", "redins:zones:"+zoneName, location, `{"a":{"ttl":300, "records":[{"ip":"`+ip+`"}]}}`)
+
+				wq.WriteString(fmt.Sprintf("%s.%s %d %d %s\n", location, zoneName, dns.TypeA, dns.RcodeSuccess, ip))
+				wz.WriteString(location + " A " + ip + "\n")
+			}
 		}
 		wz.Flush()
+		fz.Close()
 	}
 	wq.Flush()
 }
