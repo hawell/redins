@@ -2,7 +2,7 @@ package handler
 
 import (
 	"crypto"
-	"encoding/json"
+	"github.com/json-iterator/go"
 	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 	"net"
@@ -74,7 +74,7 @@ type _IP_RR struct {
 
 func (iprr *IP_RR) UnmarshalJSON(data []byte) error {
 	var _ip_rr _IP_RR
-	if err := json.Unmarshal(data, &_ip_rr); err != nil {
+	if err := jsoniter.Unmarshal(data, &_ip_rr); err != nil {
 		return err
 	}
 

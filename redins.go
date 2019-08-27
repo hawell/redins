@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	"github.com/json-iterator/go"
 	"io/ioutil"
 	"log"
 	"os"
@@ -155,7 +155,7 @@ func LoadConfig(path string) *RedinsConfig {
 		log.Printf("[INFO] loading default config")
 		return config
 	}
-	err = json.Unmarshal(raw, config)
+	err = jsoniter.Unmarshal(raw, config)
 	if err != nil {
 		log.Printf("[ERROR] cannot load json file")
 		log.Printf("[INFO] loading default config")

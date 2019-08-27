@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"encoding/json"
+	"github.com/json-iterator/go"
 	"math/rand"
 	"net"
 	"strings"
@@ -767,7 +767,7 @@ func (h *DnsRequestHandler) LoadZone(zone string) *Zone {
 		logger.Default.Errorf("cannot load zone %s config : %s", zone, err)
 	}
 	if len(val) > 0 {
-		err := json.Unmarshal([]byte(val), &z.Config)
+		err := jsoniter.Unmarshal([]byte(val), &z.Config)
 		if err != nil {
 			logger.Default.Errorf("cannot parse zone config : %s", err)
 		}
@@ -846,7 +846,7 @@ func (h *DnsRequestHandler) LoadLocation(location string, z *Zone) *Record {
 	if val == "" {
 		return r
 	}
-	err := json.Unmarshal([]byte(val), r)
+	err := jsoniter.Unmarshal([]byte(val), r)
 	if err != nil {
 		logger.Default.Errorf("cannot parse json : zone -> %s, location -> %s, \"%s\" -> %s", z.Name, location, val, err)
 		return nil
@@ -856,7 +856,7 @@ func (h *DnsRequestHandler) LoadLocation(location string, z *Zone) *Record {
 }
 
 func (h *DnsRequestHandler) SetLocation(location string, z *Zone, val *Record) {
-	jsonValue, err := json.Marshal(val)
+	jsonValue, err := jsoniter.Marshal(val)
 	if err != nil {
 		logger.Default.Errorf("cannot encode to json : %s", err)
 		return

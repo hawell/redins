@@ -2,8 +2,8 @@ package handler
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
+	"github.com/json-iterator/go"
 	"net"
 	"net/http"
 	"strings"
@@ -240,7 +240,7 @@ func (h *Healthcheck) loadItem(key string) *HealthCheckItem {
 		logger.Default.Errorf("cannot load item %s : %s", key, err)
 		return nil
 	}
-	json.Unmarshal([]byte(itemStr), item)
+	jsoniter.Unmarshal([]byte(itemStr), item)
 	if item.DownCount > 0 {
 		item.DownCount = -item.DownCount
 	}
@@ -249,7 +249,7 @@ func (h *Healthcheck) loadItem(key string) *HealthCheckItem {
 
 func (h *Healthcheck) storeItem(item *HealthCheckItem) {
 	key := item.Host + ":" + item.Ip
-	itemStr, err := json.Marshal(item)
+	itemStr, err := jsoniter.Marshal(item)
 	if err != nil {
 		logger.Default.Errorf("cannot marshal item to json : %s", err)
 		return
@@ -265,7 +265,7 @@ func (h *Healthcheck) getDomainId(zone string) string {
 		logger.Default.Errorf("cannot load zone %s config : %s", zone, err)
 	}
 	if len(val) > 0 {
-		err := json.Unmarshal([]byte(val), &cfg)
+		err := jsoniter.Unmarshal([]byte(val), &cfg)
 		if err != nil {
 			logger.Default.Errorf("cannot parse zone config : %s", err)
 		}
@@ -420,7 +420,7 @@ func (h *Healthcheck) Transfer() {
 						Enable:    false,
 					}
 					record.AAAA = record.A
-					err = json.Unmarshal([]byte(recordStr), record)
+					err = jsoniter.Unmarshal([]byte(recordStr), record)
 					if err != nil {
 						logger.Default.Errorf("cannot parse json : zone -> %s, location -> %s, %s -> %s", domain, subdomain, recordStr, err)
 						continue
