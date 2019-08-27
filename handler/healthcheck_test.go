@@ -107,7 +107,7 @@ var configRedisConf = uperdis.RedisConfig{
 
 func TestGet(t *testing.T) {
 	log.Println("TestGet")
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 	configRedis := uperdis.NewRedis(&configRedisConf)
 	h := NewHealthcheck(&config, configRedis)
 
@@ -131,7 +131,7 @@ func TestGet(t *testing.T) {
 
 func TestFilter(t *testing.T) {
 	log.Println("TestFilter")
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 	configRedis := uperdis.NewRedis(&configRedisConf)
 	h := NewHealthcheck(&config, configRedis)
 
@@ -267,7 +267,7 @@ func TestFilter(t *testing.T) {
 
 func TestSet(t *testing.T) {
 	log.Println("TestSet")
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 	configRedis := uperdis.NewRedis(&configRedisConf)
 	h := NewHealthcheck(&config, configRedis)
 
@@ -294,7 +294,7 @@ func TestSet(t *testing.T) {
 
 func TestTransfer(t *testing.T) {
 	log.Printf("TestTransfer")
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 	configRedis := uperdis.NewRedis(&configRedisConf)
 	h := NewHealthcheck(&config, configRedis)
 
@@ -394,7 +394,7 @@ var hcEntries = [][]string{
 
 func TestHealthCheck(t *testing.T) {
 	log.Println("TestHealthCheck")
-	logger.Default = logger.NewLogger(&logger.LogConfig{Enable: true, Target: "stdout", Format: "text"})
+	logger.Default = logger.NewLogger(&logger.LogConfig{Enable: true, Target: "stdout", Format: "text"}, nil)
 
 	configRedis := uperdis.NewRedis(&configRedisConf)
 	hc := NewHealthcheck(&healthcheckConfig, configRedis)
@@ -455,7 +455,7 @@ func TestExpire(t *testing.T) {
 	}
 
 	log.Printf("TestExpire")
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 	configRedis := uperdis.NewRedis(&configRedisConf)
 	h := NewHealthcheck(&config, configRedis)
 

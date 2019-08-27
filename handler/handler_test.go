@@ -600,7 +600,7 @@ var handlerTestConfig = HandlerConfig{
 }
 
 func TestLookup(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
@@ -634,7 +634,7 @@ func TestLookup(t *testing.T) {
 }
 
 func TestWeight(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	// distribution
 	ips := []IP_RR{
@@ -792,7 +792,7 @@ var anameTestCases = []test.Case{
 }
 
 func TestANAME(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
@@ -825,7 +825,7 @@ func TestANAME(t *testing.T) {
 }
 
 func TestWeightedANAME(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
@@ -1126,7 +1126,7 @@ var filterGeoTestCases = []test.Case{
 }
 
 func TestGeoFilter(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{Target: "file", Enable: true, Path: "/tmp/rtest.log", Format: "txt"})
+	logger.Default = logger.NewLogger(&logger.LogConfig{Target: "file", Enable: true, Path: "/tmp/rtest.log", Format: "txt"}, nil)
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
@@ -1227,7 +1227,7 @@ var filterMultiTestCases = []test.Case{
 }
 
 func TestMultiFilter(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
@@ -1381,7 +1381,7 @@ var filterSingleTestCases = []test.Case{
 }
 
 func TestSingleFilter(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
@@ -1499,7 +1499,7 @@ var upstreamCNAMETestCases = []test.Case{
 }
 
 func TestUpstreamCNAME(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
@@ -1586,7 +1586,7 @@ var cnameOutsideTests = []test.Case{
 }
 
 func TestCNameOutsideZone(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
@@ -1637,7 +1637,7 @@ var cnameLoopTests = []test.Case{
 }
 
 func TestCNameLoop(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
@@ -1729,7 +1729,7 @@ var findZoneTests = []test.Case{
 }
 
 func TestFindZone(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")
@@ -1776,7 +1776,7 @@ var subsTestCases = []test.Case{
 }
 
 func TestSubscribeZones(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	var handlerTestConfig = HandlerConfig{
 		MaxTtl:       300,
@@ -1877,7 +1877,7 @@ var cnameNoAuthTests = []test.Case{
 }
 
 func TestCNameNoAuth(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&handlerTestConfig)
 	h.Redis.Del("*")

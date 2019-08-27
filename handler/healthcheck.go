@@ -187,7 +187,7 @@ func NewHealthcheck(config *HealthcheckConfig, redisConfigServer *uperdis.Redis)
 		for i := 0; i < config.MaxRequests; i++ {
 			h.dispatcher.AddWorker(HandleHealthCheck(h))
 		}
-		h.logger = logger.NewLogger(&config.Log)
+		h.logger = logger.NewLogger(&config.Log, nil)
 		h.quit = make(chan struct{}, 1)
 	}
 

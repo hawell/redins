@@ -171,7 +171,7 @@ func Start() {
 	}
 	cfg := LoadConfig(configFile)
 
-	logger.Default = logger.NewLogger(&cfg.ErrorLog)
+	logger.Default = logger.NewLogger(&cfg.ErrorLog, nil)
 
 	s = handler.NewServer(cfg.Server)
 

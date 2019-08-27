@@ -44,7 +44,7 @@ var upstreamTestConfig = HandlerConfig{
 }
 
 func TestUpstream(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 	u := NewUpstream(upstreamTestConfig.Upstream)
 	rs, res := u.Query("google.com.", dns.TypeAAAA)
 	if len(rs) == 0 || res != 0 {
@@ -67,7 +67,7 @@ func TestFallback(t *testing.T) {
 	tc := test.Case{
 		Qname: "google.com.", Qtype: dns.TypeAAAA,
 	}
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&upstreamTestConfig)
 

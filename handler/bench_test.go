@@ -31,7 +31,7 @@ var benchEntries = [][]string{
 var h *DnsRequestHandler
 
 func TestMain(m *testing.M) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h = NewHandler(&handlerTestConfig)
 	err := h.Redis.Del("*")

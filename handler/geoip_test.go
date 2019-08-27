@@ -56,7 +56,7 @@ func TestGeoIpAutomatic(t *testing.T) {
 		Enable:    true,
 		CountryDB: "../geoCity.mmdb",
 	}
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	g := NewGeoIp(&cfg)
 
@@ -93,7 +93,7 @@ func TestGetSameCountry(t *testing.T) {
 		Enable:    true,
 		CountryDB: "../geoCity.mmdb",
 	}
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	g := NewGeoIp(&cfg)
 

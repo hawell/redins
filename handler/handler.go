@@ -51,7 +51,7 @@ func NewHandler(config *HandlerConfig) *DnsRequestHandler {
 	}
 
 	h.Redis = uperdis.NewRedis(&config.Redis)
-	h.Logger = logger.NewLogger(&config.Log)
+	h.Logger = logger.NewLogger(&config.Log, nil)
 	h.geoip = NewGeoIp(&config.GeoIp)
 	h.healthcheck = NewHealthcheck(&config.HealthCheck, h.Redis)
 	h.upstream = NewUpstream(config.Upstream)

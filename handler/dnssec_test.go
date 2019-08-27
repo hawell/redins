@@ -293,7 +293,7 @@ var dnssecTestConfig = HandlerConfig{
 }
 
 func TestDNSSEC(t *testing.T) {
-	logger.Default = logger.NewLogger(&logger.LogConfig{})
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
 	h := NewHandler(&dnssecTestConfig)
 
