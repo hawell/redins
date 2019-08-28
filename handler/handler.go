@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"arvancloud/redins/handler/logformat"
 	"github.com/json-iterator/go"
+	"github.com/sirupsen/logrus"
 	"math/rand"
 	"net"
 	"strings"
@@ -50,8 +52,21 @@ func NewHandler(config *HandlerConfig) *DnsRequestHandler {
 		Config: config,
 	}
 
+	getFormatter := func(name string) logrus.Formatter {
+		switch name {
+		case "capnp_request":
+			return &logformat.CapnpRequestLogFormatter{}
+		case "json":
+			return &logrus.JSONFormatter{TimestampFormat: h.Config.Log.TimeFormat}
+		case "text":
+			return &logrus.TextFormatter{TimestampFormat: h.Config.Log.TimeFormat}
+		default:
+			return &logrus.TextFormatter{TimestampFormat: h.Config.Log.TimeFormat}
+		}
+	}
+
 	h.Redis = uperdis.NewRedis(&config.Redis)
-	h.Logger = logger.NewLogger(&config.Log, nil)
+	h.Logger = logger.NewLogger(&config.Log, getFormatter)
 	h.geoip = NewGeoIp(&config.GeoIp)
 	h.healthcheck = NewHealthcheck(&config.HealthCheck, h.Redis)
 	h.upstream = NewUpstream(config.Upstream)
