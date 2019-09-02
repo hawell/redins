@@ -11,6 +11,7 @@ import (
 	"github.com/miekg/dns"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -62,7 +63,7 @@ var logTestConfig = HandlerConfig{
 
 var logZone = "zone.log."
 
-var logZoneConfig = `{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.zone.log.","ns":"ns1.zone.log.","refresh":44,"retry":55,"expire":66}}`
+var logZoneConfig = `{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.zone.log.","ns":"ns1.zone.log.","refresh":44,"retry":55,"expire":66},"domain_id":"d5cb15ec-cbfa-11e9-8ea5-9baaa1851180"}`
 
 var logZoneEntries = [][]string{
 	{"www",
@@ -197,6 +198,18 @@ func TestKafkaCapnpLog(t *testing.T) {
 			t.Fail()
 		}
 	}
+	opt := &dns.OPT{
+		Hdr: dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT, Class: dns.ClassANY, Rdlength: 0, Ttl: 300},
+		Option: []dns.EDNS0{
+			&dns.EDNS0_SUBNET{
+				Address:       net.ParseIP("94.76.229.204"),
+				Code:          dns.EDNS0SUBNET,
+				Family:        1,
+				SourceNetmask: 32,
+				SourceScope:   0,
+			},
+		},
+	}
 	h.Redis.Set("redins:zones:"+logZone+":config", logZoneConfig)
 	h.LoadZones()
 	tc := test.Case{
@@ -204,6 +217,7 @@ func TestKafkaCapnpLog(t *testing.T) {
 		Qtype: dns.TypeA,
 	}
 	r := tc.Msg()
+	r.Extra = append(r.Extra, opt)
 	w := test.NewRecorder(&test.ResponseWriter{})
 	state := request.Request{W: w, Req: r}
 	h.HandleRequest(&state)
