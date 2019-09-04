@@ -103,7 +103,7 @@ func TestJsonLog(t *testing.T) {
 	m1 := map[string]interface{}{
 		"cache":         "MISS",
 		"client_subnet": "",
-		"domain_uuid":   "",
+		"domain_uuid":   "d5cb15ec-cbfa-11e9-8ea5-9baaa1851180",
 		"level":         "info",
 		"log_type":      "request",
 		"msg":           "dns request",
@@ -176,6 +176,45 @@ func TestCapnpLog(t *testing.T) {
 		if record != "www2.zone.log." {
 			t.Fail()
 		}
+	}
+}
+
+func TestCapnpLogNotAuth(t *testing.T) {
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
+	os.Remove("/tmp/test.log")
+
+	logTestConfig.Log.Format = "capnp_request"
+	h := NewHandler(&logTestConfig)
+	h.Redis.Del("*")
+	h.LoadZones()
+	tc := test.Case{
+		Qname: "www2.zone.log",
+		Qtype: dns.TypeA,
+	}
+	r := tc.Msg()
+	w := test.NewRecorder(&test.ResponseWriter{})
+	state := request.Request{W: w, Req: r}
+	h.HandleRequest(&state)
+	logFile, err := os.OpenFile("/tmp/test.log", os.O_RDONLY, 0666)
+	if err != nil {
+		fmt.Println(err)
+		t.Fail()
+	}
+	decoder := capnp.NewDecoder(logFile)
+
+	msg, err := decoder.Decode()
+	if err != nil {
+		fmt.Println(err)
+		t.Fail()
+	}
+	requestLog, err := logformat.ReadRootRequestLog(msg)
+	if err != nil {
+		fmt.Println(err)
+		t.Fail()
+	}
+	resp := requestLog.Responsecode()
+	if resp != dns.RcodeNotAuth {
+		t.Fail()
 	}
 }
 

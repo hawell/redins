@@ -175,6 +175,8 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 				count++
 			}
 		}
+	} else {
+		logData["domain_uuid"] = ""
 	}
 
 	res = localRes
