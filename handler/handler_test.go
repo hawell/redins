@@ -750,6 +750,9 @@ var anameEntries = [][][]string{
 		{"upstream2",
 			`{"aname":{"location":"aname2.arvan.an."}}`,
 		},
+		{"nxupstream",
+			`{"aname":{"location":"anamex.arvan.an."}}`,
+		},
 	},
 	{
 		{"aname",
@@ -789,6 +792,20 @@ var anameTestCases = []test.Case{
 			test.AAAA("upstream.arvancloud.com. 303 IN AAAA fd3e:4f5a:5b81::1"),
 		},
 	},
+	{
+		Qname: "nxupstream.arvancloud.com.", Qtype: dns.TypeA,
+		Ns: []dns.RR{
+			test.SOA("arvancloud.com.	300	IN	SOA	ns1.arvancloud.com. hostmaster.arvancloud.com. 1570970363 44 55 66 100"),
+		},
+		Rcode:dns.RcodeNameError,
+	},
+	{
+		Qname: "nxupstream.arvancloud.com.", Qtype: dns.TypeAAAA,
+		Ns: []dns.RR{
+			test.SOA("arvancloud.com.	300	IN	SOA	ns1.arvancloud.com. hostmaster.arvancloud.com. 1570970363 44 55 66 100"),
+		},
+		Rcode:dns.RcodeNameError,
+	},
 }
 
 func TestANAME(t *testing.T) {
@@ -818,7 +835,9 @@ func TestANAME(t *testing.T) {
 
 		resp := w.Msg
 
-		if test.SortAndCheck(resp, tc) != nil {
+		if err := test.SortAndCheck(resp, tc); err != nil {
+			fmt.Println(resp)
+			fmt.Println(err)
 			t.Fail()
 		}
 	}

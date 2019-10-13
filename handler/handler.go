@@ -191,7 +191,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 					if anameRes == dns.RcodeSuccess {
 						ips := h.Filter(state, &anameAnswer.A, logData)
 						answers = append(answers, h.A(qname, anameAnswer, ips)...)
-					} else {
+					} else if anameRes == dns.RcodeNotAuth {
 						upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeA)
 						if upstreamRes == dns.RcodeSuccess {
 							var anameRecord []dns.RR
@@ -204,6 +204,8 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 							answers = append(answers, anameRecord...)
 						}
 						res = upstreamRes
+					} else {
+						res = anameRes
 					}
 				}
 			} else {
@@ -217,7 +219,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 					if anameRes == dns.RcodeSuccess {
 						ips := h.Filter(state, &anameAnswer.AAAA, logData)
 						answers = append(answers, h.AAAA(qname, anameAnswer, ips)...)
-					} else {
+					} else if anameRes == dns.RcodeNotAuth {
 						upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeAAAA)
 						if upstreamRes == dns.RcodeSuccess {
 							var anameRecord []dns.RR
@@ -230,6 +232,8 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 							answers = append(answers, anameRecord...)
 						}
 						res = upstreamRes
+					} else {
+						res = anameRes
 					}
 				}
 			} else {

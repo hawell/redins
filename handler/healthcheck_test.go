@@ -407,7 +407,7 @@ func TestHealthCheck(t *testing.T) {
 	configRedis.Set("redins:zones:google.com.:config", hcConfig)
 
 	go hc.Start()
-	time.Sleep(10 * time.Second)
+	time.Sleep(12 * time.Second)
 	h1 := hc.getStatus("www.google.com.", net.ParseIP("172.217.17.78"))
 	h2 := hc.getStatus("ddd.google.com.", net.ParseIP("3.3.3.3"))
 	/*
