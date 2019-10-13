@@ -281,6 +281,7 @@ func (h *Healthcheck) Start() {
 
 	go h.Transfer()
 
+	ticker := time.NewTicker(h.checkInterval)
 	for {
 		itemKeys, err := h.redisStatusServer.GetKeys("redins:healthcheck:*")
 		if err != nil {
@@ -288,9 +289,10 @@ func (h *Healthcheck) Start() {
 		}
 		select {
 		case <-h.quit:
+			ticker.Stop()
 			h.quitWG.Done()
 			return
-		case <-time.After(h.checkInterval):
+		case <-ticker.C:
 			for i := range itemKeys {
 				itemKey := strings.TrimPrefix(itemKeys[i], "redins:healthcheck:")
 				item := h.loadItem(itemKey)

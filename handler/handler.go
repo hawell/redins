@@ -87,13 +87,15 @@ func NewHandler(config *HandlerConfig) *DnsRequestHandler {
 		logger.Default.Warning("event notification is not available, adding/removing zones will not be instant")
 		go func() {
 			h.numRoutines++
+			ticker := time.NewTicker(time.Duration(h.Config.ZoneReload) * time.Second)
 			for {
 				select {
 				case <-h.quit:
 					// fmt.Println("updateZone : quit")
+					ticker.Stop()
 					h.quitWG.Done()
 					return
-				case <-time.After(time.Duration(h.Config.ZoneReload) * time.Second):
+				case <-ticker.C:
 					logger.Default.Debugf("%v", h.Zones)
 					logger.Default.Debug("loading zones")
 					h.LoadZones()
@@ -314,7 +316,9 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 
 	state.SizeAndDo(m)
 	m = state.Scrub(m)
-	state.W.WriteMsg(m)
+	if err := state.W.WriteMsg(m); err != nil {
+		logger.Default.Error("write error : ", err)
+	}
 }
 
 func (h *DnsRequestHandler) Filter(request *request.Request, rrset *IP_RRSet, logData map[string]interface{}) []IP_RR {
@@ -884,7 +888,9 @@ func (h *DnsRequestHandler) SetLocation(location string, z *Zone, val *Record) {
 	} else {
 		label = location
 	}
-	h.Redis.HSet(z.Name, label, string(jsonValue))
+	if err = h.Redis.HSet(z.Name, label, string(jsonValue)); err != nil {
+		logger.Default.Error("redis error : ", err)
+	}
 }
 
 func ChooseIp(ips []IP_RR, weighted bool) int {
