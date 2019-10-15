@@ -321,7 +321,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 	state.SizeAndDo(m)
 	m = state.Scrub(m)
 	if err := state.W.WriteMsg(m); err != nil {
-		logger.Default.Error("write error : ", err)
+		logger.Default.Error("write error : ", err, " msg : ", m.String())
 	}
 }
 
