@@ -85,6 +85,15 @@ var config = HealthcheckConfig{
 		Password:       "",
 		Prefix:         "healthcheck_",
 		Suffix:         "_healthcheck",
+		Connection: uperdis.RedisConnectionConfig{
+			MaxIdleConnections:   10,
+			MaxActiveConnections: 10,
+			ConnectTimeout:       500,
+			ReadTimeout:          500,
+			IdleKeepAlive:        30,
+			MaxKeepAlive:         0,
+			WaitForConnection:    true,
+		},
 	},
 	Log: logger.LogConfig{
 		Enable: true,
@@ -99,6 +108,15 @@ var configRedisConf = uperdis.RedisConfig{
 	Password:       "",
 	Prefix:         "hcconfig_",
 	Suffix:         "_hcconfig",
+	Connection: uperdis.RedisConnectionConfig{
+		MaxIdleConnections:   10,
+		MaxActiveConnections: 10,
+		ConnectTimeout:       500,
+		ReadTimeout:          500,
+		IdleKeepAlive:        30,
+		MaxKeepAlive:         0,
+		WaitForConnection:    true,
+	},
 }
 
 func TestGet(t *testing.T) {
