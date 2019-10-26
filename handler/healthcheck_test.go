@@ -85,8 +85,6 @@ var config = HealthcheckConfig{
 		Password:       "",
 		Prefix:         "healthcheck_",
 		Suffix:         "_healthcheck",
-		ConnectTimeout: 0,
-		ReadTimeout:    0,
 	},
 	Log: logger.LogConfig{
 		Enable: true,
@@ -101,8 +99,6 @@ var configRedisConf = uperdis.RedisConfig{
 	Password:       "",
 	Prefix:         "hcconfig_",
 	Suffix:         "_hcconfig",
-	ConnectTimeout: 0,
-	ReadTimeout:    0,
 }
 
 func TestGet(t *testing.T) {
@@ -365,8 +361,6 @@ var healthcheckConfig = HealthcheckConfig{
 		Password:       "",
 		Prefix:         "hcstattest_",
 		Suffix:         "_hcstattest",
-		ConnectTimeout: 0,
-		ReadTimeout:    0,
 	},
 	CheckInterval:      1,
 	UpdateInterval:     200,
@@ -445,8 +439,6 @@ func TestExpire(t *testing.T) {
 			Password:       "",
 			Prefix:         "healthcheck1_",
 			Suffix:         "_healthcheck1",
-			ConnectTimeout: 0,
-			ReadTimeout:    0,
 		},
 		Log: logger.LogConfig{
 			Enable: true,

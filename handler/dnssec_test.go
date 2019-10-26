@@ -272,8 +272,6 @@ var dnssecTestConfig = HandlerConfig{
 		Password:       "",
 		Prefix:         "test_",
 		Suffix:         "_test",
-		ConnectTimeout: 0,
-		ReadTimeout:    0,
 	},
 	Log: logger.LogConfig{
 		Enable: false,

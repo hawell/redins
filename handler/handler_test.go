@@ -578,8 +578,6 @@ var handlerTestConfig = HandlerConfig{
 		Password:       "",
 		Prefix:         "test_",
 		Suffix:         "_test",
-		ConnectTimeout: 0,
-		ReadTimeout:    0,
 	},
 	Log: logger.LogConfig{
 		Enable: false,
@@ -1808,8 +1806,6 @@ func TestSubscribeZones(t *testing.T) {
 			Password:       "",
 			Prefix:         "test_",
 			Suffix:         "_test",
-			ConnectTimeout: 0,
-			ReadTimeout:    0,
 		},
 		Log: logger.LogConfig{
 			Enable: false,
