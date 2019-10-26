@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"strconv"
 	"time"
+    "golang.org/x/sync/singleflight"
 
 	"github.com/hawell/logger"
 	"github.com/miekg/dns"
@@ -17,6 +19,7 @@ type UpstreamConnection struct {
 type Upstream struct {
 	connections []*UpstreamConnection
 	cache       *cache.Cache
+	inflight    *singleflight.Group
 }
 
 type UpstreamConfig struct {
@@ -27,7 +30,9 @@ type UpstreamConfig struct {
 }
 
 func NewUpstream(config []UpstreamConfig) *Upstream {
-	u := &Upstream{}
+	u := &Upstream{
+		inflight: new(singleflight.Group),
+	}
 
 	u.cache = cache.New(time.Second*time.Duration(defaultCacheTtl), time.Second*time.Duration(defaultCacheTtl)*10)
 	for _, upstreamConfig := range config {
@@ -56,32 +61,39 @@ func (u *Upstream) Query(location string, qtype uint16) ([]dns.RR, int) {
 		}
 		return records, dns.RcodeSuccess
 	}
-	m := new(dns.Msg)
-	m.SetQuestion(location, qtype)
-	for _, c := range u.connections {
-		r, _, err := c.client.Exchange(m, c.connectionStr)
-		if err != nil {
-			logger.Default.Errorf("failed to retrieve record %s from upstream %s : %s", location, c.connectionStr, err)
-			continue
-		}
-		if r.Rcode != dns.RcodeSuccess {
-			logger.Default.Errorf("upstream error response : %s for %s", dns.RcodeToString[r.Rcode], location)
-		}
-		if len(r.Answer) == 0 {
-			return []dns.RR{}, dns.RcodeNameError
-		}
-		minTtl := r.Answer[0].Header().Ttl
-		for _, record := range r.Answer {
-			if record.Header().Ttl < minTtl {
-				minTtl = record.Header().Ttl
+	answer, err, _ := u.inflight.Do(key, func() (interface{}, error) {
+		m := new(dns.Msg)
+		m.SetQuestion(location, qtype)
+		for _, c := range u.connections {
+			r, _, err := c.client.Exchange(m, c.connectionStr)
+			if err != nil {
+				logger.Default.Errorf("failed to retrieve record %s from upstream %s : %s", location, c.connectionStr, err)
+				continue
 			}
-		}
-		u.cache.Set(key, r.Answer, time.Duration(minTtl)*time.Second)
-		u.connections[0], c = c, u.connections[0]
+			if r.Rcode != dns.RcodeSuccess {
+				logger.Default.Errorf("upstream error response : %s for %s", dns.RcodeToString[r.Rcode], location)
+				return r, nil
+			}
 
-		return r.Answer, dns.RcodeSuccess
+			minTtl := r.Answer[0].Header().Ttl
+			for _, record := range r.Answer {
+				if record.Header().Ttl < minTtl {
+					minTtl = record.Header().Ttl
+				}
+			}
+			u.cache.Set(key, r.Answer, time.Duration(minTtl)*time.Second)
+			u.connections[0], c = c, u.connections[0]
+
+			return r, nil
+		}
+		return nil, errors.New("failed to retrieve data from upstream")
+	})
+	if err != nil {
+		return []dns.RR{}, dns.RcodeServerFailure
+	} else {
+		msg := answer.(*dns.Msg)
+		return msg.Answer, msg.Rcode
 	}
-	return []dns.RR{}, dns.RcodeServerFailure
 }
 
 const (

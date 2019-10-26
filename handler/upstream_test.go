@@ -89,3 +89,34 @@ func TestFallback(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestAsyncQuery(t *testing.T) {
+	tcs := []test.Case{
+		{
+			Qname: "dns.msftncsi.com.", Qtype: dns.TypeA,
+			Answer: []dns.RR{
+				test.A("dns.msftncsi.com.	303	IN	A	131.107.255.255"),
+			},
+		},
+		{
+			Qname: "dns.msftncsi.com.", Qtype: dns.TypeAAAA,
+			Answer: []dns.RR{
+				test.AAAA("dns.msftncsi.com.	303	IN	AAAA	fd3e:4f5a:5b81::1"),
+			},
+		},
+	}
+	h := NewHandler(&upstreamTestConfig)
+	for _, tc := range tcs {
+		go func() {
+			r := tc.Msg()
+			w := test.NewRecorder(&test.ResponseWriter{})
+			state := request.Request{W: w, Req: r}
+			h.HandleRequest(&state)
+
+			resp := w.Msg
+			if err := test.SortAndCheck(resp, tc); err != nil {
+				t.Fail()
+			}
+		}()
+	}
+}
