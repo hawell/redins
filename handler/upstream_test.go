@@ -2,6 +2,7 @@ package handler
 
 import (
 	"log"
+	"sync"
 	"testing"
 
 	"arvancloud/redins/test"
@@ -104,10 +105,16 @@ func TestAsyncQuery(t *testing.T) {
 				test.AAAA("dns.msftncsi.com.	303	IN	AAAA	fd3e:4f5a:5b81::1"),
 			},
 		},
+		{
+			Qname: "dns.msftncsi.com.", Qtype: dns.TypeTXT,
+		},
 	}
 	h := NewHandler(&upstreamTestConfig)
+	wg := sync.WaitGroup{}
+	wg.Add(len(tcs))
 	for _, tc := range tcs {
-		go func() {
+		go func(tc test.Case) {
+
 			r := tc.Msg()
 			w := test.NewRecorder(&test.ResponseWriter{})
 			state := request.Request{W: w, Req: r}
@@ -117,6 +124,8 @@ func TestAsyncQuery(t *testing.T) {
 			if err := test.SortAndCheck(resp, tc); err != nil {
 				t.Fail()
 			}
-		}()
+			wg.Done()
+		}(tc)
 	}
+	wg.Wait()
 }

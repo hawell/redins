@@ -74,7 +74,9 @@ func (u *Upstream) Query(location string, qtype uint16) ([]dns.RR, int) {
 				logger.Default.Errorf("upstream error response : %s for %s", dns.RcodeToString[r.Rcode], location)
 				return r, nil
 			}
-
+			if len(r.Answer) == 0 {
+				return r, nil
+			}
 			minTtl := r.Answer[0].Header().Ttl
 			for _, record := range r.Answer {
 				if record.Header().Ttl < minTtl {
