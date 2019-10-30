@@ -278,7 +278,10 @@ log configuration
       "enable": false,
       "brokers": ["127.0.0.1:9092"],
       "topic": "redins",
-      "format": "capnp_request"
+      "format": "capnp_request",
+      "compression": "none",
+      "timeout": 3000,
+      "buffer_size": 1000
     }
   }
 }
@@ -293,6 +296,13 @@ log configuration
 * `sentry` : sentry hook configurations
 * `syslog` : syslog hook configurations
 * `kafka` : kafka hook configurations
+    * `enable`: enable/disable kafka hook, default: disable
+    * `brokers`: list of brokers in "ip:port" format, default : "127.0.0.1:9092"
+    * `topic`: name of kafka topic, default : "redins"
+    * `format`: message format, default: "json"
+    * `compression`: compression format : "snappy", "gzip", "lz4", "zstd", "none", default: "none"
+    * `timeout`: kafka operation timeout (dial, read, write) in milliseconds, default : 3000
+    * `buffer_size`: kafka producer buffer size, default : 1000
 
 ### rate limit 
 rate limit connfiguration

@@ -101,6 +101,15 @@ func LoadConfig(path string) *RedinsConfig {
 					Syslog: logger.SyslogConfig{
 						Enable: false,
 					},
+					Kafka: logger.KafkaConfig{
+						Enable:      false,
+						Topic:       "redins",
+						Brokers:     []string{"127.0.0.1:9092"},
+						Format:      "json",
+						Compression: "none",
+						Timeout:     3000,
+						BufferSize:  1000,
+					},
 				},
 			},
 			MaxTtl:            3600,
@@ -138,6 +147,15 @@ func LoadConfig(path string) *RedinsConfig {
 				Syslog: logger.SyslogConfig{
 					Enable: false,
 				},
+				Kafka: logger.KafkaConfig{
+					Enable:      false,
+					Topic:       "redins",
+					Brokers:     []string{"127.0.0.1:9092"},
+					Format:      "json",
+					Compression: "none",
+					Timeout:     3000,
+					BufferSize:  1000,
+				},
 			},
 		},
 		ErrorLog: logger.LogConfig{
@@ -151,6 +169,15 @@ func LoadConfig(path string) *RedinsConfig {
 			},
 			Syslog: logger.SyslogConfig{
 				Enable: false,
+			},
+			Kafka: logger.KafkaConfig{
+				Enable:      false,
+				Topic:       "redins",
+				Brokers:     []string{"127.0.0.1:9092"},
+				Format:      "json",
+				Compression: "none",
+				Timeout:     3000,
+				BufferSize:  1000,
 			},
 		},
 		RateLimit: handler.RateLimiterConfig{
