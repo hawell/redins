@@ -181,22 +181,34 @@ func Start() {
 	if len(os.Args) > 1 {
 		configFile = os.Args[1]
 	}
+	log.Printf("[INFO] loading config : %s", configFile)
 	cfg := LoadConfig(configFile)
 
+	log.Printf("[INFO] loading logger...")
 	logger.Default = logger.NewLogger(&cfg.ErrorLog, nil)
+	log.Printf("[INFO] logger loaded")
 
 	s = handler.NewServer(cfg.Server)
 
+	logger.Default.Info("starting handler...")
 	h = handler.NewHandler(&cfg.Handler)
+	logger.Default.Info("handler started")
 
 	l = handler.NewRateLimiter(&cfg.RateLimit)
 
 	dns.HandleFunc(".", handleRequest)
 
+	logger.Default.Info("binding listeners...")
 	for i := range s {
-		go s[i].ListenAndServe()
+		go func() {
+			err := s[i].ListenAndServe()
+			if err != nil {
+				logger.Default.Errorf("listener error : %s", err)
+			}
+		}()
 		time.Sleep(1 * time.Second)
 	}
+	logger.Default.Info("binding completed")
 }
 
 func Stop() {
