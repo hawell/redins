@@ -572,8 +572,8 @@ var handlerTestConfig = HandlerConfig{
 	CacheTimeout: 60,
 	ZoneReload:   600,
 	Redis: uperdis.RedisConfig{
-		Ip:             "redis",
-		Port:           6379,
+		Address:       "redis:6379",
+		Net:           "tcp",
 		DB:             0,
 		Password:       "",
 		Prefix:         "test_",
@@ -1809,8 +1809,8 @@ func TestSubscribeZones(t *testing.T) {
 		CacheTimeout: 1,
 		ZoneReload:   600,
 		Redis: uperdis.RedisConfig{
-			Ip:             "redis",
-			Port:           6379,
+			Address:        "redis:6379",
+			Net:            "tcp",
 			DB:             0,
 			Password:       "",
 			Prefix:         "test_",

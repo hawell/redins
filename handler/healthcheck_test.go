@@ -79,8 +79,8 @@ var config = HealthcheckConfig{
 	UpdateInterval:     600,
 	CheckInterval:      600,
 	RedisStatusServer: uperdis.RedisConfig{
-		Ip:             "redis",
-		Port:           6379,
+		Address:        "redis:6379",
+		Net:            "tcp",
 		DB:             0,
 		Password:       "",
 		Prefix:         "healthcheck_",
@@ -102,8 +102,8 @@ var config = HealthcheckConfig{
 }
 
 var configRedisConf = uperdis.RedisConfig{
-	Ip:             "redis",
-	Port:           6379,
+	Address:        "redis:6379",
+	Net:            "tcp",
 	DB:             0,
 	Password:       "",
 	Prefix:         "hcconfig_",
@@ -373,8 +373,8 @@ var healthcheckConfig = HealthcheckConfig{
 		TimeFormat: "2006-01-02 15:04:05",
 	},
 	RedisStatusServer: uperdis.RedisConfig{
-		Ip:             "redis",
-		Port:           6379,
+		Address:        "redis:6379",
+		Net:            "tcp",
 		DB:             0,
 		Password:       "",
 		Prefix:         "hcstattest_",
@@ -451,8 +451,8 @@ func TestExpire(t *testing.T) {
 		UpdateInterval:     1,
 		CheckInterval:      600,
 		RedisStatusServer: uperdis.RedisConfig{
-			Ip:             "redis",
-			Port:           6379,
+			Address:        "redis:6379",
+			Net:            "tcp",
 			DB:             0,
 			Password:       "",
 			Prefix:         "healthcheck1_",

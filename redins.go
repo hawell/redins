@@ -72,8 +72,8 @@ func LoadConfig(path string) *RedinsConfig {
 				UpdateInterval:     600,
 				CheckInterval:      600,
 				RedisStatusServer: uperdis.RedisConfig{
-					Ip:                "127.0.0.1",
-					Port:              6379,
+					Address:           "127.0.0.1:6379",
+					Net:               "tcp",
 					DB:                0,
 					Password:          "",
 					Prefix:            "redins_",
@@ -118,8 +118,8 @@ func LoadConfig(path string) *RedinsConfig {
 			LogSourceLocation: false,
 			UpstreamFallback:  false,
 			Redis: uperdis.RedisConfig{
-				Ip:                "127.0.0.1",
-				Port:              6379,
+				Address:           "127.0.0.1:6379",
+				Net:               "tcp",
 				DB:                0,
 				Password:          "",
 				Prefix:            "redins_",

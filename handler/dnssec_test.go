@@ -266,8 +266,8 @@ var dnssecTestConfig = HandlerConfig{
 	CacheTimeout: 60,
 	ZoneReload:   600,
 	Redis: uperdis.RedisConfig{
-		Ip:             "redis",
-		Port:           6379,
+		Address:        "redis:6379",
+		Net:            "tcp",
 		DB:             0,
 		Password:       "",
 		Prefix:         "test_",

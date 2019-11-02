@@ -66,8 +66,8 @@ dns query handler configuration
     "log_source_location": false,
     "upstream_fallback": false,
     "redis": {
-        "ip": "127.0.0.1",
-        "port": 6379,
+        "address": "127.0.0.1:6379",
+        "net": "tcp",
         "password": "",
         "db": 0,
         "prefix": "test_",
@@ -86,8 +86,8 @@ dns query handler configuration
         "update_interval": 600,
         "check_interval": 600,
         "redis": {
-            "ip": "127.0.0.1",
-            "port": 6379,
+            "address": "127.0.0.1:6379",
+            "net":  "tcp",
             "db": 0,
             "password": "",
             "prefix": "healthcheck_",
@@ -136,8 +136,8 @@ healthcheck configuration
     "update_interval": 600,
     "check_interval": 600,
     "redis": {
-      "ip": "127.0.0.1",
-      "port": 6379,
+      "address": "127.0.0.1:6379",
+      "net": "tcp",
       "db": 0,
       "password": "",
       "prefix": "healthcheck_",
@@ -218,8 +218,8 @@ redis configurations
 ~~~json
 {
   "redis": {
-    "ip": "127.0.0.1",
-    "port": 6379,
+    "address": "127.0.0.1:6379",
+    "net": "tcp",
     "db": 0,
     "password": "",
     "prefix": "test_",
@@ -239,12 +239,11 @@ redis configurations
 }
 ~~~
 
-* `ip` : redis server ip, default: 127.0.0.1
-* `port` : redis server port, deafult: 6379
-* `db` : redis database, default: 0
-* `password` : redis password, deafult: ""
-* `prefix` : limit redis keys to those prefixed with this string
-* `suffix` : limit redis keys to those suffixed with this string
+* `address` : redis address: "ip:port" for "tcp" and "/path/to/unix/socket.sock" for "unix", default: "127.0.0.1:6379"
+* `net`: connection protocol: "tcp" or "unix", default: "tcp"
+* `db`: redis database to use, default: 0
+* `password`: redis AUTH string, default is empty
+* `prefix`, `suffix`: strings to prepend/append to all redis queries, default is empty 
 * `max_idle_connections`: maximum number of idle connections that pool keeps, default: 10
 * `max_active_connections`: maximum number of active connections, default: 10
 * `connect_timeout`: time to wait for connecting to redis server in milliseconds, 0 for no timeout; default: 500
