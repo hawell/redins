@@ -322,6 +322,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 	m = state.Scrub(m)
 	if err := state.W.WriteMsg(m); err != nil {
 		logger.Default.Error("write error : ", err, " msg : ", m.String())
+		_ = state.W.Close()
 	}
 }
 
