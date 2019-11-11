@@ -4,6 +4,7 @@ import (
 	"github.com/json-iterator/go"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +15,7 @@ import (
 	"github.com/hawell/logger"
 	"github.com/hawell/uperdis"
 	"github.com/miekg/dns"
+	_ "net/http/pprof"
 )
 
 var (
@@ -248,6 +250,10 @@ func Stop() {
 func main() {
 
 	Start()
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGHUP)
