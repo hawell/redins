@@ -147,6 +147,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 	var res int
 	var answers []dns.RR
 	var authority []dns.RR
+	var additional []dns.RR
 	record, localRes = h.FetchRecord(qname, logData)
 	originalRecord := record
 	if record != nil {
@@ -183,98 +184,109 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 
 	res = localRes
 	if localRes == dns.RcodeSuccess {
-		switch qtype {
-		case dns.TypeA:
-			if len(record.A.Data) == 0 {
-				if record.ANAME != nil {
-					anameAnswer, anameRes := h.FetchRecord(record.ANAME.Location, logData)
-					if anameRes == dns.RcodeSuccess {
-						ips := h.Filter(state, &anameAnswer.A, logData)
-						answers = append(answers, h.A(qname, anameAnswer, ips)...)
-					} else if anameRes == dns.RcodeNotAuth {
-						upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeA)
-						if upstreamRes == dns.RcodeSuccess {
-							var anameRecord []dns.RR
-							for _, r := range upstreamAnswers {
-								if r.Header().Name == record.ANAME.Location && r.Header().Rrtype == dns.TypeA {
-									a := r.(*dns.A)
-									anameRecord = append(anameRecord, &dns.A{A: a.A, Hdr: dns.RR_Header{Rrtype: dns.TypeA, Name: qname, Ttl: a.Hdr.Ttl, Class: dns.ClassINET, Rdlength: 0}})
-								}
-							}
-							answers = append(answers, anameRecord...)
-						}
-						res = upstreamRes
-					} else {
-						res = anameRes
-					}
+		if qname != originalRecord.Zone.Name && len(record.NS.Data) > 0 {
+			authority = append(authority, h.NS(qname, record)...)
+			for _, ns := range record.NS.Data {
+				glueAddress, glueRes := h.FetchRecord(ns.Host, logData)
+				if glueRes == dns.RcodeSuccess {
+					additional = append(additional, h.A(ns.Host, glueAddress, glueAddress.A.Data)...)
 				}
-			} else {
-				ips := h.Filter(state, &record.A, logData)
-				answers = append(answers, h.A(qname, record, ips)...)
 			}
-		case dns.TypeAAAA:
-			if len(record.AAAA.Data) == 0 {
-				if record.ANAME != nil {
-					anameAnswer, anameRes := h.FetchRecord(record.ANAME.Location, logData)
-					if anameRes == dns.RcodeSuccess {
-						ips := h.Filter(state, &anameAnswer.AAAA, logData)
-						answers = append(answers, h.AAAA(qname, anameAnswer, ips)...)
-					} else if anameRes == dns.RcodeNotAuth {
-						upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeAAAA)
-						if upstreamRes == dns.RcodeSuccess {
-							var anameRecord []dns.RR
-							for _, r := range upstreamAnswers {
-								if r.Header().Name == record.ANAME.Location && r.Header().Rrtype == dns.TypeAAAA {
-									a := r.(*dns.AAAA)
-									anameRecord = append(anameRecord, &dns.AAAA{AAAA: a.AAAA, Hdr: dns.RR_Header{Rrtype: dns.TypeAAAA, Name: qname, Ttl: a.Hdr.Ttl, Class: dns.ClassINET, Rdlength: 0}})
+			res = dns.RcodeNotAuth
+		} else {
+			switch qtype {
+			case dns.TypeA:
+				if len(record.A.Data) == 0 {
+					if record.ANAME != nil {
+						anameAnswer, anameRes := h.FetchRecord(record.ANAME.Location, logData)
+						if anameRes == dns.RcodeSuccess {
+							ips := h.Filter(state, &anameAnswer.A, logData)
+							answers = append(answers, h.A(qname, anameAnswer, ips)...)
+						} else if anameRes == dns.RcodeNotAuth {
+							upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeA)
+							if upstreamRes == dns.RcodeSuccess {
+								var anameRecord []dns.RR
+								for _, r := range upstreamAnswers {
+									if r.Header().Name == record.ANAME.Location && r.Header().Rrtype == dns.TypeA {
+										a := r.(*dns.A)
+										anameRecord = append(anameRecord, &dns.A{A: a.A, Hdr: dns.RR_Header{Rrtype: dns.TypeA, Name: qname, Ttl: a.Hdr.Ttl, Class: dns.ClassINET, Rdlength: 0}})
+									}
 								}
+								answers = append(answers, anameRecord...)
 							}
-							answers = append(answers, anameRecord...)
+							res = upstreamRes
+						} else {
+							res = anameRes
 						}
-						res = upstreamRes
-					} else {
-						res = anameRes
 					}
+				} else {
+					ips := h.Filter(state, &record.A, logData)
+					answers = append(answers, h.A(qname, record, ips)...)
 				}
-			} else {
-				ips := h.Filter(state, &record.AAAA, logData)
-				answers = append(answers, h.AAAA(qname, record, ips)...)
-			}
-		case dns.TypeCNAME:
-			answers = append(answers, h.CNAME(qname, record)...)
-		case dns.TypeTXT:
-			answers = append(answers, h.TXT(qname, record)...)
-		case dns.TypeNS:
-			answers = append(answers, h.NS(qname, record)...)
-		case dns.TypeMX:
-			answers = append(answers, h.MX(qname, record)...)
-		case dns.TypeSRV:
-			answers = append(answers, h.SRV(qname, record)...)
-		case dns.TypeCAA:
-			caaRecord := h.FindCAA(record)
-			if caaRecord != nil {
-				answers = append(answers, h.CAA(qname, caaRecord)...)
-			}
-		case dns.TypePTR:
-			answers = append(answers, h.PTR(qname, record)...)
-		case dns.TypeTLSA:
-			answers = append(answers, h.TLSA(qname, record)...)
-		case dns.TypeSOA:
-			answers = append(answers, record.Zone.Config.SOA.Data)
-		case dns.TypeDNSKEY:
-			if record.Zone.Config.DnsSec {
-				answers = []dns.RR{record.Zone.ZSK.DnsKey, record.Zone.KSK.DnsKey}
-			}
-		default:
-			answers = []dns.RR{}
-			authority = []dns.RR{}
-			res = dns.RcodeNotImplemented
-		}
-		if len(answers) == 0 {
-			if originalRecord.CNAME != nil {
+			case dns.TypeAAAA:
+				if len(record.AAAA.Data) == 0 {
+					if record.ANAME != nil {
+						anameAnswer, anameRes := h.FetchRecord(record.ANAME.Location, logData)
+						if anameRes == dns.RcodeSuccess {
+							ips := h.Filter(state, &anameAnswer.AAAA, logData)
+							answers = append(answers, h.AAAA(qname, anameAnswer, ips)...)
+						} else if anameRes == dns.RcodeNotAuth {
+							upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeAAAA)
+							if upstreamRes == dns.RcodeSuccess {
+								var anameRecord []dns.RR
+								for _, r := range upstreamAnswers {
+									if r.Header().Name == record.ANAME.Location && r.Header().Rrtype == dns.TypeAAAA {
+										a := r.(*dns.AAAA)
+										anameRecord = append(anameRecord, &dns.AAAA{AAAA: a.AAAA, Hdr: dns.RR_Header{Rrtype: dns.TypeAAAA, Name: qname, Ttl: a.Hdr.Ttl, Class: dns.ClassINET, Rdlength: 0}})
+									}
+								}
+								answers = append(answers, anameRecord...)
+							}
+							res = upstreamRes
+						} else {
+							res = anameRes
+						}
+					}
+				} else {
+					ips := h.Filter(state, &record.AAAA, logData)
+					answers = append(answers, h.AAAA(qname, record, ips)...)
+				}
+			case dns.TypeCNAME:
 				answers = append(answers, h.CNAME(qname, record)...)
-			} else {
-				authority = append(authority, originalRecord.Zone.Config.SOA.Data)
+			case dns.TypeTXT:
+				answers = append(answers, h.TXT(qname, record)...)
+			case dns.TypeNS:
+				answers = append(answers, h.NS(qname, record)...)
+			case dns.TypeMX:
+				answers = append(answers, h.MX(qname, record)...)
+			case dns.TypeSRV:
+				answers = append(answers, h.SRV(qname, record)...)
+			case dns.TypeCAA:
+				caaRecord := h.FindCAA(record)
+				if caaRecord != nil {
+					answers = append(answers, h.CAA(qname, caaRecord)...)
+				}
+			case dns.TypePTR:
+				answers = append(answers, h.PTR(qname, record)...)
+			case dns.TypeTLSA:
+				answers = append(answers, h.TLSA(qname, record)...)
+			case dns.TypeSOA:
+				answers = append(answers, record.Zone.Config.SOA.Data)
+			case dns.TypeDNSKEY:
+				if record.Zone.Config.DnsSec {
+					answers = []dns.RR{record.Zone.ZSK.DnsKey, record.Zone.KSK.DnsKey}
+				}
+			default:
+				answers = []dns.RR{}
+				authority = []dns.RR{}
+				res = dns.RcodeNotImplemented
+			}
+			if len(answers) == 0 {
+				if originalRecord.CNAME != nil {
+					answers = append(answers, h.CNAME(qname, record)...)
+				} else {
+					authority = append(authority, originalRecord.Zone.Config.SOA.Data)
+				}
 			}
 		}
 	} else if localRes == dns.RcodeNameError {
@@ -317,6 +329,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 	m.SetRcode(state.Req, res)
 	m.Answer = append(m.Answer, answers...)
 	m.Ns = append(m.Ns, authority...)
+	m.Extra = append(m.Extra, additional...)
 
 	state.SizeAndDo(m)
 	m = state.Scrub(m)

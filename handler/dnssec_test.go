@@ -17,17 +17,19 @@ var dnssecZone = string("dnssec_test.com.")
 var dnssecConfig = `{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.dnssec_test.com.","ns":"ns1.dnssec_test.com.","refresh":44,"retry":55,"expire":66},"dnssec": true}`
 var dnssecEntries = [][]string{
 	{"@",
-		`{"ns":{"ttl":300,"records":[{"host":"a.dnssec_test.com."}]}}`,
+		`{"ns":{"ttl":300,"records":[{"host":"ns1.dnssec_test.com."},{"host":"ns2.dnssec_test.com."}]}}`,
 	},
 	{"x",
 		`{
             "a":{"ttl":300, "records":[{"ip":"1.2.3.4", "country":"ES"},{"ip":"5.6.7.8", "country":""}]},
             "aaaa":{"ttl":300, "records":[{"ip":"::1"}]},
             "txt":{"ttl":300, "records":[{"text":"foo"},{"text":"bar"}]},
-            "ns":{"ttl":300, "records":[{"host":"ns1.dnssec_test.com."},{"host":"ns2.dnssec_test.com."}]},
             "mx":{"ttl":300, "records":[{"host":"mx1.dnssec_test.com.", "preference":10},{"host":"mx2.dnssec_test.com.", "preference":10}]},
             "srv":{"ttl":300, "records":[{"target":"sip.dnssec_test.com.","port":555,"priority":10,"weight":100}]}
             }`,
+	},
+	{"y",
+		`{"ns":{"ttl":300, "records":[{"host":"ns1.dnssec_test.com."},{"host":"ns2.dnssec_test.com."}]}}`,
 	},
 	{"*",
 		`{"txt":{"ttl":300,"records":[{"text":"wildcard text"}]}}`,
@@ -149,11 +151,11 @@ var dnssecTestCases = []test.Case{
 	},
 	// NS Test
 	{
-		Qname: "x.dnssec_test.com.", Qtype: dns.TypeNS,
+		Qname: "dnssec_test.com.", Qtype: dns.TypeNS,
 		Answer: []dns.RR{
-			test.NS("x.dnssec_test.com. 300 IN NS ns1.dnssec_test.com."),
-			test.NS("x.dnssec_test.com. 300 IN NS ns2.dnssec_test.com."),
-			test.RRSIG("x.dnssec_test.com.	300	IN	RRSIG	NS 5 3 300 20180726104727 20180718074727 22548 dnssec_test.com. NTYiqJBR8hFjYQcHeuUUWH2zIEqpF5xfFeHBb24icTbd5kg7VU9QHkzc/odnAFu80SfDJVnxX9OTV7re8Epp06CBT7m8VpUUv6+qnn6ma2qukWa8wyvFPg/PXJLA8cpG"),
+			test.NS("dnssec_test.com. 300 IN NS ns1.dnssec_test.com."),
+			test.NS("dnssec_test.com. 300 IN NS ns2.dnssec_test.com."),
+			test.RRSIG("dnssec_test.com.	300	IN	RRSIG	NS 5 2 300 20191122140218 20191114110218 22548 dnssec_test.com. DK9giOXPadNyDfFtsPjEd9JpWGIeCyIOgDDwzvgsYc/k/Q5blgtWBNxJ Fk0aPqj6M15RFTig2nA3uEJpEJx7OAj5zzSSTqyPozT/qrmPMWdxJcuK yaJ+CH+Ws9wJsM3S"),
 		},
 		Do: true,
 		Extra: []dns.RR{
@@ -328,7 +330,7 @@ func TestDNSSEC(t *testing.T) {
 		state := request.Request{W: w, Req: r}
 		h.HandleRequest(&state)
 		resp := w.Msg
-		fmt.Println(resp.Answer)
+		// fmt.Println(resp.Answer)
 		for _, answer := range resp.Answer {
 			if key, ok := answer.(*dns.DNSKEY); ok {
 				if key.Flags == 256 {
@@ -343,6 +345,7 @@ func TestDNSSEC(t *testing.T) {
 	// fmt.Println("ksk is ", ksk.String())
 
 	for i, tc0 := range dnssecTestCases {
+		// fmt.Println(i)
 		tc := test.Case{
 			Qname: dnssecTestCases[i].Qname, Qtype: dnssecTestCases[i].Qtype,
 			Answer: make([]dns.RR, len(dnssecTestCases[i].Answer)),
@@ -370,7 +373,7 @@ func TestDNSSEC(t *testing.T) {
 					break
 				}
 				if rrsig, ok := rrs[e].(*dns.RRSIG); ok {
-					//fmt.Printf("s = %d, e = %d\n", s, e)
+					// fmt.Printf("s = %d, e = %d\n", s, e)
 					if tc.Qtype == dns.TypeDNSKEY {
 						if rrsig.Verify(ksk.(*dns.DNSKEY), rrs[s:e]) != nil {
 							fmt.Println("fail")

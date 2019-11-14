@@ -31,12 +31,14 @@ var lookupConfig = []string{
 }
 var lookupEntries = [][][]string{
 	{
+		{"@",
+			`{"ns":{"ttl":300, "records":[{"host":"ns1.example.com."},{"host":"ns2.example.com."}]}}`,
+		},
 		{"x",
 			`{
             "a":{"ttl":300, "records":[{"ip":"1.2.3.4", "country":"ES"},{"ip":"5.6.7.8", "country":""}]},
             "aaaa":{"ttl":300, "records":[{"ip":"::1"}]},
             "txt":{"ttl":300, "records":[{"text":"foo"},{"text":"bar"}]},
-            "ns":{"ttl":300, "records":[{"host":"ns1.example.com."},{"host":"ns2.example.com."}]},
             "mx":{"ttl":300, "records":[{"host":"mx1.example.com.", "preference":10},{"host":"mx2.example.com.", "preference":10}]},
             "srv":{"ttl":300, "records":[{"target":"sip.example.com.","port":555,"priority":10,"weight":100}]}
             }`,
@@ -96,11 +98,13 @@ var lookupEntries = [][][]string{
 		},
 	},
 	{
+		{"@",
+			`{"ns":{"ttl":300, "records":[{"host":"ns1.example.aaa."},{"ttl":300, "host":"ns2.example.aaa."}]},}`,
+		},
 		{"x",
 			`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]},
                 "aaaa":{"ttl":300, "records":[{"ip":"::1"}]},
                 "txt":{"ttl":300, "records":[{"text":"foo"},{"text":"bar"}]},
-                "ns":{"ttl":300, "records":[{"host":"ns1.example.aaa."},{"ttl":300, "host":"ns2.example.aaa."}]},
                 "mx":{"ttl":300, "records":[{"host":"mx1.example.aaa.", "preference":10},{"host":"mx2.example.aaa.", "preference":10}]},
                 "srv":{"ttl":300, "records":[{"target":"sip.example.aaa.","port":555,"priority":10,"weight":100}]}}`,
 		},
@@ -128,11 +132,13 @@ var lookupEntries = [][][]string{
 		},
 	},
 	{
+		{"@",
+			`{"ns":{"ttl":300, "records":[{"host":"ns1.example.ddd."},{"ttl":300, "host":"ns2.example.ddd."}]}}`,
+		},
 		{"a",
 			`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]},
                 "aaaa":{"ttl":300, "records":[{"ip":"::1"}]},
                 "txt":{"ttl":300, "records":[{"text":"foo"},{"text":"bar"}]},
-                "ns":{"ttl":300, "records":[{"host":"ns1.example.ddd."},{"ttl":300, "host":"ns2.example.ddd."}]},
                 "mx":{"ttl":300, "records":[{"host":"mx1.example.ddd.", "preference":10},{"host":"mx2.example.ddd.", "preference":10}]},
                 "srv":{"ttl":300, "records":[{"target":"sip.example.ddd.","port":555,"priority":10,"weight":100}]}}`,
 		},
@@ -227,10 +233,10 @@ var lookupTestCases = [][]test.Case{
 		},
 		// NS Test
 		{
-			Qname: "x.example.com.", Qtype: dns.TypeNS,
+			Qname: "example.com.", Qtype: dns.TypeNS,
 			Answer: []dns.RR{
-				test.NS("x.example.com. 300 IN NS ns1.example.com."),
-				test.NS("x.example.com. 300 IN NS ns2.example.com."),
+				test.NS("example.com. 300 IN NS ns1.example.com."),
+				test.NS("example.com. 300 IN NS ns2.example.com."),
 			},
 		},
 		// MX Test
@@ -492,13 +498,6 @@ var lookupTestCases = [][]test.Case{
 			Answer: []dns.RR{
 				test.TXT("e.example.ddd. 300 IN TXT \"bar\""),
 				test.TXT("e.example.ddd. 300 IN TXT \"foo\""),
-			},
-		},
-		{
-			Qname: "e.example.ddd.", Qtype: dns.TypeNS,
-			Answer: []dns.RR{
-				test.NS("e.example.ddd. 300 IN NS ns1.example.ddd."),
-				test.NS("e.example.ddd. 300 IN NS ns2.example.ddd."),
 			},
 		},
 		// MX Test
@@ -1917,6 +1916,80 @@ func TestCNameNoAuth(t *testing.T) {
 
 	h.LoadZones()
 	for j, tc := range cnameNoAuthTests {
+
+		r := tc.Msg()
+		w := test.NewRecorder(&test.ResponseWriter{})
+		state := request.Request{W: w, Req: r}
+		h.HandleRequest(&state)
+
+		resp := w.Msg
+
+		fmt.Println(j, tc.Qname, tc.Answer, resp.Answer)
+		if err := test.SortAndCheck(resp, tc); err != nil {
+			t.Fail()
+			fmt.Println(err)
+		}
+	}
+}
+
+var delegationZone = "delegation.zon."
+
+var delegationEntries = [][]string{
+	{"glue",
+		`{"ns":{"ttl":300, "records":[{"host":"ns1.glue.delegation.zon."},{"host":"ns2.glue.delegation.zon."}]}}`,
+	},
+	{"noglue",
+		`{"ns":{"ttl":300, "records":[{"host":"ns1.delegated.zon."},{"host":"ns2.delegated.zon."}]}}`,
+	},
+	{"ns1.glue",
+		`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
+	},
+	{"ns2.glue",
+		`{"a":{"ttl":300, "records":[{"ip":"5.6.7.8"}]}}`,
+	},
+}
+
+var delegationTests = []test.Case{
+	{
+		Qname: "glue.delegation.zon.",
+		Qtype: dns.TypeA,
+		Rcode: dns.RcodeNotAuth,
+		Ns: []dns.RR{
+			test.NS("glue.delegation.zon. 300 IN NS ns1.glue.delegation.zon."),
+			test.NS("glue.delegation.zon. 300 IN NS ns2.glue.delegation.zon."),
+		},
+		Extra: []dns.RR{
+			test.A("ns1.glue.delegation.zon. 300 IN A 1.2.3.4"),
+			test.A("ns2.glue.delegation.zon. 300 IN A 5.6.7.8"),
+		},
+	},
+	{
+		Qname: "noglue.delegation.zon.",
+		Qtype: dns.TypeA,
+		Rcode: dns.RcodeNotAuth,
+		Ns:[]dns.RR{
+			test.NS("noglue.delegation.zon. 300 IN NS ns1.delegated.zon."),
+			test.NS("noglue.delegation.zon. 300 IN NS ns2.delegated.zon."),
+		},
+	},
+}
+
+func TestDelegation(t *testing.T){
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
+
+	h := NewHandler(&handlerTestConfig)
+	h.Redis.Del("*")
+	h.Redis.SAdd("redins:zones", delegationZone)
+	for _, cmd := range delegationEntries {
+		err := h.Redis.HSet("redins:zones:"+delegationZone, cmd[0], cmd[1])
+		if err != nil {
+			log.Printf("[ERROR] cannot connect to redis: %s", err)
+			t.Fail()
+		}
+	}
+
+	h.LoadZones()
+	for j, tc := range delegationTests {
 
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
