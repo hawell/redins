@@ -25,8 +25,8 @@ var (
 )
 
 func handleRequest(w dns.ResponseWriter, r *dns.Msg) {
-	// log.Printf("[DEBUG] handle request")
 	state := request.Request{W: w, Req: r}
+	logger.Default.Debugf("handle request: [%d] %s %s", r.Id, state.Name(), state.Type())
 
 	if l.CanHandle(state.IP()) {
 		h.HandleRequest(&state)
@@ -229,13 +229,12 @@ func Start() {
 
 	logger.Default.Info("binding listeners...")
 	for i := range s {
-		go func() {
+		go func(i int) {
 			err := s[i].ListenAndServe()
 			if err != nil {
 				logger.Default.Errorf("listener error : %s", err)
 			}
-		}()
-		time.Sleep(1 * time.Second)
+		}(i)
 	}
 	logger.Default.Info("binding completed")
 }
