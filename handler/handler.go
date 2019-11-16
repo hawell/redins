@@ -117,6 +117,7 @@ func (h *DnsRequestHandler) ShutDown() {
 }
 
 func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
+	// TODO: refactor handle flow
 	qname := state.Name()
 	qtype := state.QType()
 
@@ -192,12 +193,14 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 					additional = append(additional, h.A(ns.Host, glueAddress, glueAddress.A.Data)...)
 				}
 			}
+			auth = false
 			res = dns.RcodeNotAuth
 		} else {
 			switch qtype {
 			case dns.TypeA:
 				if len(record.A.Data) == 0 {
 					if record.ANAME != nil {
+						// TODO: handle aname chain
 						anameAnswer, anameRes := h.FetchRecord(record.ANAME.Location, logData)
 						if anameRes == dns.RcodeSuccess {
 							ips := h.Filter(state, &anameAnswer.A, logData)
@@ -293,6 +296,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 		answers = []dns.RR{}
 		authority = append(authority, originalRecord.Zone.Config.SOA.Data)
 	} else if localRes == dns.RcodeNotAuth {
+		// TODO: remove upstream fallback
 		if h.Config.UpstreamFallback {
 			upstreamAnswers, upstreamRes := h.upstream.Query(dns.Fqdn(qname), qtype)
 			if upstreamRes == dns.RcodeSuccess {
