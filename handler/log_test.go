@@ -97,9 +97,9 @@ func TestJsonLog(t *testing.T) {
 	w := test.NewRecorder(&test.ResponseWriter{})
 	state := request.Request{W: w, Req: r}
 	h.HandleRequest(&state)
+	time.Sleep(time.Millisecond * 100)
 	b, _ := ioutil.ReadFile("/tmp/test.log")
 	m1 := map[string]interface{}{
-		"cache":         "MISS",
 		"client_subnet": "",
 		"domain_uuid":   "d5cb15ec-cbfa-11e9-8ea5-9baaa1851180",
 		"level":         "info",
@@ -148,6 +148,7 @@ func TestCapnpLog(t *testing.T) {
 	state := request.Request{W: w, Req: r}
 	h.HandleRequest(&state)
 	h.HandleRequest(&state)
+	time.Sleep(time.Millisecond * 100)
 	logFile, err := os.OpenFile("/tmp/test.log", os.O_RDONLY, 0666)
 	if err != nil {
 		fmt.Println(err)
@@ -193,6 +194,7 @@ func TestCapnpLogNotAuth(t *testing.T) {
 	w := test.NewRecorder(&test.ResponseWriter{})
 	state := request.Request{W: w, Req: r}
 	h.HandleRequest(&state)
+	time.Sleep(time.Millisecond * 100)
 	logFile, err := os.OpenFile("/tmp/test.log", os.O_RDONLY, 0666)
 	if err != nil {
 		fmt.Println(err)

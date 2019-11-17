@@ -250,6 +250,7 @@ func main() {
 
 	Start()
 
+	// TODO: this should be part of a general api
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()

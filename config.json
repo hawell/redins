@@ -4,17 +4,6 @@
       "ip": "127.0.0.1",
       "port": 1053,
       "protocol": "udp"
-    },
-    {
-      "ip": "127.0.0.1",
-      "port": 10853,
-      "protocol": "tcp",
-      "tls": {
-          "enable": true,
-          "cert_path": "",
-          "key_path": "",
-          "ca_path": ""
-      }
     }
   ],
   "handler": {
@@ -27,11 +16,17 @@
       "ip": "redis",
       "port": 6379,
       "password": "",
-      "prefix": "test_",
-      "suffix": "_test",
-      "connect_timeout": 0,
-      "read_timeout": 0,
-      "active_connections": 10
+      "prefix": "",
+      "suffix": "_dns2",
+      "connection": {
+        "max_idle_connections": 10,
+        "max_active_connections": 10,
+        "connect_timeout": 500,
+        "read_timeout": 500,
+        "idle_keep_alive": 30,
+        "max_keep_alive": 0,
+        "wait_for_connection": true
+      }
     },
     "log": {
       "enable": true,
@@ -40,7 +35,7 @@
       "path": "/tmp/redins.log",
       "time_format": "2006-01-02 15:04:05",
       "kafka": {
-          "enable": true,
+          "enable": false,
           "topic": "redins",
           "brokers": ["127.0.0.1:9092"]
       }
@@ -89,13 +84,13 @@
   "error_log": {
     "enable": true,
     "target": "stdout",
-    "level": "debug",
+    "level": "warning",
     "path": "/tmp/error.log",
     "format": "text",
     "time_format": "2006-01-02 15:04:05"
   },
   "ratelimit": {
-    "enable": true,
+    "enable": false,
     "rate": 60,
     "burst": 10,
     "blacklist":[],

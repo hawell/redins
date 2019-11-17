@@ -73,7 +73,7 @@ func TestGeoIpAutomatic(t *testing.T) {
 			dest.Data = append(dest.Data, r)
 		}
 		dest.Ttl = 100
-		ips := g.GetMinimumDistance(net.ParseIP(sip[i][0]), dest.Data, map[string]interface{}{})
+		ips := g.GetMinimumDistance(net.ParseIP(sip[i][0]), dest.Data)
 		log.Println("[DEBUG]", sip[i][0], " ", ips[0].Ip.String(), " ", len(ips))
 		if sip[i][2] != ips[0].Ip.String() {
 			t.Fail()
@@ -104,7 +104,7 @@ func TestGetSameCountry(t *testing.T) {
 			{Ip: net.ParseIP("2.3.4.5"), Country: []string{"FR"}},
 			{Ip: net.ParseIP("3.4.5.6"), Country: []string{""}},
 		}
-		ips := g.GetSameCountry(net.ParseIP(sip[i][0]), dest.Data, map[string]interface{}{})
+		ips := g.GetSameCountry(net.ParseIP(sip[i][0]), dest.Data)
 		if len(ips) != 1 {
 			t.Fail()
 		}
@@ -147,7 +147,7 @@ func TestGetSameASN(t *testing.T) {
 	g := NewGeoIp(&cfg)
 
 	for i := range sip {
-		ips := g.GetSameASN(net.ParseIP(sip[i]), dip.Data, map[string]interface{}{})
+		ips := g.GetSameASN(net.ParseIP(sip[i]), dip.Data)
 		if len(ips) != 1 {
 			t.Fail()
 		}

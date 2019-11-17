@@ -39,7 +39,7 @@ func NewGeoIp(config *GeoIpConfig) *GeoIp {
 	return g
 }
 
-func (g *GeoIp) GetSameCountry(sourceIp net.IP, ips []IP_RR, logData map[string]interface{}) []IP_RR {
+func (g *GeoIp) GetSameCountry(sourceIp net.IP, ips []IP_RR) []IP_RR {
 	if !g.Enable || g.CountryDB == nil {
 		return ips
 	}
@@ -48,7 +48,6 @@ func (g *GeoIp) GetSameCountry(sourceIp net.IP, ips []IP_RR, logData map[string]
 		logger.Default.Error("getSameCountry failed")
 		return ips
 	}
-	logData["source_country"] = sourceCountry
 
 	var result []IP_RR
 	if sourceCountry != "" {
@@ -84,7 +83,7 @@ func (g *GeoIp) GetSameCountry(sourceIp net.IP, ips []IP_RR, logData map[string]
 	return ips
 }
 
-func (g *GeoIp) GetSameASN(sourceIp net.IP, ips []IP_RR, logData map[string]interface{}) []IP_RR {
+func (g *GeoIp) GetSameASN(sourceIp net.IP, ips []IP_RR) []IP_RR {
 	if !g.Enable || g.ASNDB == nil {
 		return ips
 	}
@@ -93,7 +92,6 @@ func (g *GeoIp) GetSameASN(sourceIp net.IP, ips []IP_RR, logData map[string]inte
 		logger.Default.Error("getSameASN failed")
 		return ips
 	}
-	logData["source_asn"] = sourceASN
 
 	var result []IP_RR
 	if sourceASN != 0 {
@@ -129,7 +127,7 @@ func (g *GeoIp) GetSameASN(sourceIp net.IP, ips []IP_RR, logData map[string]inte
 	return ips
 }
 
-func (g *GeoIp) GetMinimumDistance(sourceIp net.IP, ips []IP_RR, logData map[string]interface{}) []IP_RR {
+func (g *GeoIp) GetMinimumDistance(sourceIp net.IP, ips []IP_RR) []IP_RR {
 	if !g.Enable || g.CountryDB == nil {
 		return ips
 	}
