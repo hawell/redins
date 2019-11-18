@@ -70,10 +70,10 @@ func NewHandler(config *HandlerConfig) *DnsRequestHandler {
 		h.quitWG.Add(1)
 		for {
 			select {
-			case <- h.quit:
+			case <-h.quit:
 				h.quitWG.Done()
 				return
-			case data := <- h.logQueue:
+			case data := <-h.logQueue:
 				h.Logger.Log(data, "dns request")
 			}
 		}

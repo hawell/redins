@@ -268,12 +268,12 @@ var dnssecTestConfig = HandlerConfig{
 	CacheTimeout: 60,
 	ZoneReload:   600,
 	Redis: uperdis.RedisConfig{
-		Address:        "redis:6379",
-		Net:            "tcp",
-		DB:             0,
-		Password:       "",
-		Prefix:         "test_",
-		Suffix:         "_test",
+		Address:  "redis:6379",
+		Net:      "tcp",
+		DB:       0,
+		Password: "",
+		Prefix:   "test_",
+		Suffix:   "_test",
 		Connection: uperdis.RedisConnectionConfig{
 			MaxIdleConnections:   10,
 			MaxActiveConnections: 10,

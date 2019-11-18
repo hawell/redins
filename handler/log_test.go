@@ -24,12 +24,12 @@ var logTestConfig = HandlerConfig{
 	ZoneReload:        600,
 	LogSourceLocation: true,
 	Redis: uperdis.RedisConfig{
-		Address:        "redis:6379",
-		Net:            "tcp",
-		DB:             0,
-		Password:       "",
-		Prefix:         "test_",
-		Suffix:         "_test",
+		Address:  "redis:6379",
+		Net:      "tcp",
+		DB:       0,
+		Password: "",
+		Prefix:   "test_",
+		Suffix:   "_test",
 	},
 	Log: logger.LogConfig{
 		Enable: true,
@@ -220,7 +220,7 @@ func TestCapnpLogNotAuth(t *testing.T) {
 
 func TestKafkaCapnpLog(t *testing.T) {
 	t.Skip("skip kafka test")
-	
+
 	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 	os.Remove("/tmp/test.log")
 

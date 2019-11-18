@@ -2,9 +2,9 @@ package handler
 
 import (
 	"errors"
+	"golang.org/x/sync/singleflight"
 	"strconv"
 	"time"
-    "golang.org/x/sync/singleflight"
 
 	"github.com/hawell/logger"
 	"github.com/miekg/dns"
