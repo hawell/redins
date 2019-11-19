@@ -288,10 +288,10 @@ log configuration
 
 * `enable` : enable/disable this log resource, default: disable
 * `level` : log level, can be debug, info, warning, error, default: info
-* `target` : log target, can be stdout, stderr, file, default: stdout
+* `target` : log target, can be stdout, stderr, file, udp default: stdout
 * `format` : log format, can be text, json, default: text. an extra log format ("capnp_request") is also available for request logs
 * `time_format` : timestamp format using example-based layout, reference time is Mon Jan 2 15:04:05 MST 2006
-* `path` : log output file path
+* `path` : log output file path, net address if target is udp
 * `sentry` : sentry hook configurations
 * `syslog` : syslog hook configurations
 * `kafka` : kafka hook configurations

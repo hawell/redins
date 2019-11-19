@@ -315,12 +315,36 @@ func Verify(configFile string) {
 
 	checkLog := func(config *logger.LogConfig) {
 		fmt.Println("checking log...")
-		msg := fmt.Sprintf("checking target : %s", config.Target)
+		msg := fmt.Sprintf("checking target : %s", config.Path)
 		var err error = nil
-		if config.Target != "stdout" && config.Target != "stderr" && config.Target != "file" {
+		if config.Target != "stdout" && config.Target != "stderr" && config.Target != "file" && config.Target != "udp" {
 			err = errors.New("invalid target : " + config.Target)
 		}
 		printResult(msg, err)
+
+		if config.Target == "file" {
+			msg = fmt.Sprintf("checking file target : %s", config.Path)
+			var file *os.File
+			file, err = os.OpenFile(config.Target, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
+			if err == nil {
+				file.Close()
+			}
+			printResult(msg, err)
+		}
+		if config.Target == "udp" {
+			msg = fmt.Sprintf("checking udp target : %s", config.Target)
+			err = nil
+			var raddr *net.UDPAddr
+			raddr, err = net.ResolveUDPAddr("udp", config.Path)
+			if err == nil {
+				var con *net.UDPConn
+				con, err = net.DialUDP("udp", nil, raddr)
+				if err == nil {
+					con.Close()
+				}
+			}
+			printResult(msg, err)
+		}
 
 		msg = fmt.Sprintf("checking log level : %s", config.Level)
 		err = nil

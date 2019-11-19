@@ -3,6 +3,7 @@ package handler
 import (
 	"arvancloud/redins/handler/logformat"
 	"arvancloud/redins/test"
+	"bytes"
 	"fmt"
 	"github.com/coredns/coredns/request"
 	"github.com/hawell/logger"
@@ -261,4 +262,77 @@ func TestKafkaCapnpLog(t *testing.T) {
 	state := request.Request{W: w, Req: r}
 	h.HandleRequest(&state)
 	time.Sleep(time.Second)
+}
+
+func TestUdpCapnpLog(t *testing.T){
+	go func() {
+		pc, err := net.ListenPacket("udp", "localhost:9090")
+		if err != nil {
+			fmt.Println(err)
+			t.Fail()
+			return
+		}
+		for i := 0; i < 2; i++ {
+			buffer := make([]byte, 1024)
+			n, _, err := pc.ReadFrom(buffer)
+			fmt.Println("n = ", n)
+			if err != nil {
+				fmt.Println(err)
+				t.Fail()
+				return
+			}
+			r := bytes.NewReader(buffer)
+			decoder := capnp.NewDecoder(r)
+
+			msg, err := decoder.Decode()
+			if err != nil {
+				fmt.Println(err)
+				t.Fail()
+			}
+			requestLog, err := logformat.ReadRootRequestLog(msg)
+			if err != nil {
+				fmt.Println(err)
+				t.Fail()
+			}
+			fmt.Println(requestLog)
+			record, err := requestLog.Record()
+			if err != nil {
+				fmt.Println(err)
+				t.Fail()
+			}
+			if record != "www2.zone.log." {
+				t.Fail()
+			}
+		}
+		pc.Close()
+	}()
+
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
+	os.Remove("/tmp/test.log")
+
+	logTestConfig.Log.Format = "capnp_request"
+	logTestConfig.Log.Target = "udp"
+	logTestConfig.Log.Path = "localhost:9090"
+	h := NewHandler(&logTestConfig)
+	h.Redis.Del("*")
+	h.Redis.SAdd("redins:zones", logZone)
+	for _, cmd := range logZoneEntries {
+		err := h.Redis.HSet("redins:zones:"+logZone, cmd[0], cmd[1])
+		if err != nil {
+			log.Printf("[ERROR] cannot connect to redis: %s", err)
+			t.Fail()
+		}
+	}
+	h.Redis.Set("redins:zones:"+logZone+":config", logZoneConfig)
+	h.LoadZones()
+	tc := test.Case{
+		Qname: "www2.zone.log",
+		Qtype: dns.TypeA,
+	}
+	r := tc.Msg()
+	w := test.NewRecorder(&test.ResponseWriter{})
+	state := request.Request{W: w, Req: r}
+	h.HandleRequest(&state)
+	h.HandleRequest(&state)
+	time.Sleep(time.Millisecond * 100)
 }
