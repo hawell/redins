@@ -4,6 +4,17 @@
       "ip": "127.0.0.1",
       "port": 1053,
       "protocol": "udp"
+    },
+    {
+      "ip": "127.0.0.1",
+      "port": 10853,
+      "protocol": "tcp",
+      "tls": {
+          "enable": true,
+          "cert_path": "",
+          "key_path": "",
+          "ca_path": ""
+      }
     }
   ],
   "handler": {
@@ -13,11 +24,11 @@
     "log_source_location": false,
     "upstream_fallback": false,
     "redis": {
-      "ip": "redis",
-      "port": 6379,
+      "address": "redis:6379",
+      "net": "tcp",
       "password": "",
-      "prefix": "",
-      "suffix": "_dns2",
+      "prefix": "test_",
+      "suffix": "_test",
       "connection": {
         "max_idle_connections": 10,
         "max_active_connections": 10,
@@ -31,7 +42,7 @@
     "log": {
       "enable": true,
       "target": "file",
-      "level": "info",
+      "level": "debug",
       "path": "/tmp/redins.log",
       "time_format": "2006-01-02 15:04:05",
       "kafka": {
@@ -63,17 +74,23 @@
       "update_interval": 600,
       "check_interval": 10,
       "redis": {
-        "ip": "redis",
-        "port": 6379,
+        "address": "redis:6379",
+        "net": "tcp",
         "password": "",
         "prefix": "healthcheck_",
         "suffix": "_healthcheck",
-        "connect_timeout": 0,
-        "read_timeout": 0,
-        "active_connections": 10
+        "connection": {
+          "max_idle_connections": 10,
+          "max_active_connections": 10,
+          "connect_timeout": 500,
+          "read_timeout": 500,
+          "idle_keep_alive": 30,
+          "max_keep_alive": 60,
+          "wait_for_connection": false
+        }
       },
       "log": {
-        "enable": true,
+        "enable": false,
         "target": "file",
         "level": "info",
         "path": "/tmp/healthcheck.log",
@@ -84,7 +101,7 @@
   "error_log": {
     "enable": true,
     "target": "stdout",
-    "level": "warning",
+    "level": "debug",
     "path": "/tmp/error.log",
     "format": "text",
     "time_format": "2006-01-02 15:04:05"
