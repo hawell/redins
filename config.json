@@ -22,13 +22,12 @@
     "cache_timeout": 10,
     "zone_reload": 600,
     "log_source_location": false,
-    "upstream_fallback": false,
     "redis": {
       "address": "redis:6379",
       "net": "tcp",
       "password": "",
-      "prefix": "test_",
-      "suffix": "_test",
+      "prefix": "",
+      "suffix": "_dns2",
       "connection": {
         "max_idle_connections": 10,
         "max_active_connections": 10,
@@ -41,9 +40,9 @@
     },
     "log": {
       "enable": true,
-      "target": "file",
+      "target": "udp",
       "level": "debug",
-      "path": "/tmp/redins.log",
+      "path": "localhost:9090",
       "time_format": "2006-01-02 15:04:05",
       "kafka": {
           "enable": false,
@@ -101,10 +100,14 @@
   "error_log": {
     "enable": true,
     "target": "stdout",
-    "level": "debug",
+    "level": "info",
     "path": "/tmp/error.log",
     "format": "text",
-    "time_format": "2006-01-02 15:04:05"
+    "time_format": "2006-01-02 15:04:05",
+    "sentry": {
+      "enable" : false,
+      "dsn": ""
+    }
   },
   "ratelimit": {
     "enable": false,

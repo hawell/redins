@@ -40,7 +40,6 @@ type HandlerConfig struct {
 	CacheTimeout      int                 `json:"cache_timeout,omitempty"`
 	ZoneReload        int                 `json:"zone_reload,omitempty"`
 	LogSourceLocation bool                `json:"log_source_location,omitempty"`
-	UpstreamFallback  bool                `json:"upstream_fallback,omitempty"`
 	Redis             uperdis.RedisConfig `json:"redis,omitempty"`
 	Log               logger.LogConfig    `json:"log,omitempty"`
 }
@@ -299,15 +298,7 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 		answers = []dns.RR{}
 		authority = append(authority, originalRecord.Zone.Config.SOA.Data)
 	} else if localRes == dns.RcodeNotAuth {
-		// TODO: remove upstream fallback
-		if h.Config.UpstreamFallback {
-			upstreamAnswers, upstreamRes := h.upstream.Query(dns.Fqdn(qname), qtype)
-			if upstreamRes == dns.RcodeSuccess {
-				answers = append(answers, upstreamAnswers...)
-				auth = false
-			}
-			res = upstreamRes
-		} else if originalRecord != nil && originalRecord.CNAME != nil {
+		if originalRecord != nil && originalRecord.CNAME != nil {
 			if len(answers) == 0 {
 				answers = append(answers, h.CNAME(qname, originalRecord)...)
 			}
@@ -332,7 +323,7 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 	h.LogRequest(context, res)
 	m := new(dns.Msg)
 	m.SetReply(context.Req)
-	m.Authoritative, m.RecursionAvailable, m.Compress = auth, h.Config.UpstreamFallback, true
+	m.Authoritative, m.RecursionAvailable, m.Compress = auth, false, true
 	m.SetRcode(context.Req, res)
 	m.Answer = append(m.Answer, answers...)
 	m.Ns = append(m.Ns, authority...)

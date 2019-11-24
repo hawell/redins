@@ -129,7 +129,6 @@ func LoadConfig(path string) (*RedinsConfig, error) {
 			CacheTimeout:      60,
 			ZoneReload:        600,
 			LogSourceLocation: false,
-			UpstreamFallback:  false,
 			Redis: uperdis.RedisConfig{
 				Address:  "127.0.0.1:6379",
 				Net:      "tcp",

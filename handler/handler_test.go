@@ -1470,46 +1470,22 @@ var testCases = []*TestCase{
 		Config:      defaultConfig,
 		Initialize:  defaultInitialize,
 		ApplyAndVerify: func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T) {
-			handler.Config.UpstreamFallback = false
-			{
-				tc := testCase.TestCases[0]
-				r := tc.Msg()
-				w := test.NewRecorder(&test.ResponseWriter{})
-				state := NewRequestContext(w,r)
-				handler.HandleRequest(state)
+			tc := testCase.TestCases[0]
+			r := tc.Msg()
+			w := test.NewRecorder(&test.ResponseWriter{})
+			state := NewRequestContext(w,r)
+			handler.HandleRequest(state)
 
-				resp := w.Msg
-				// fmt.Println(resp)
-				if resp.Rcode != dns.RcodeSuccess {
-					fmt.Println("1")
-					t.Fail()
-				}
-				cname := resp.Answer[0].(*dns.CNAME)
-				if cname.Target != "www.google.com." {
-					fmt.Println("2 ", cname)
-					t.Fail()
-				}
+			resp := w.Msg
+			// fmt.Println(resp)
+			if resp.Rcode != dns.RcodeSuccess {
+				fmt.Println("1")
+				t.Fail()
 			}
-
-			handler.Config.UpstreamFallback = true
-			{
-				tc := testCase.TestCases[0]
-				r := tc.Msg()
-				w := test.NewRecorder(&test.ResponseWriter{})
-				state := NewRequestContext(w,r)
-				handler.HandleRequest(state)
-
-				resp := w.Msg
-				// fmt.Println(resp)
-				if resp.Rcode != dns.RcodeSuccess {
-					fmt.Println("3")
-					t.Fail()
-				}
-				cname := resp.Answer[0].(*dns.CNAME)
-				if cname.Target != "www.google.com." {
-					fmt.Println("4 ", cname)
-					t.Fail()
-				}
+			cname := resp.Answer[0].(*dns.CNAME)
+			if cname.Target != "www.google.com." {
+				fmt.Println("2 ", cname)
+				t.Fail()
 			}
 		},
 		Zones:       []string{"upstreamcname.com."},
