@@ -143,14 +143,9 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 		context.LogData["source_asn"] = sourceASN
 	}
 
-	auth := true
-
 	var record *Record
 	var localRes int
 	var res int
-	var answers []dns.RR
-	var authority []dns.RR
-	var additional []dns.RR
 	record, localRes = h.FetchRecord(qname)
 	originalRecord := record
 	if record != nil {
@@ -159,7 +154,7 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 			count := 0
 			for {
 				if count >= 10 {
-					answers = []dns.RR{}
+					context.Answer = []dns.RR{}
 					localRes = dns.RcodeServerFailure
 					logger.Default.Errorf("CNAME loop in request %s->%s", context.Name(), context.Type())
 					break
@@ -171,7 +166,7 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 					break
 				}
 				if !record.Zone.Config.CnameFlattening {
-					answers = append(answers, h.CNAME(qname, record)...)
+					context.Answer = append(context.Answer, h.CNAME(qname, record)...)
 					if h.Matches(record.CNAME.Host) != originalRecord.Zone.Name {
 						break
 					}
@@ -188,14 +183,14 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 	res = localRes
 	if localRes == dns.RcodeSuccess {
 		if qname != originalRecord.Zone.Name && len(record.NS.Data) > 0 {
-			authority = append(authority, h.NS(qname, record)...)
+			context.Authority = append(context.Authority, h.NS(qname, record)...)
 			for _, ns := range record.NS.Data {
 				glueAddress, glueRes := h.FetchRecord(ns.Host)
 				if glueRes == dns.RcodeSuccess {
-					additional = append(additional, h.A(ns.Host, glueAddress, glueAddress.A.Data)...)
+					context.Additional = append(context.Additional, h.A(ns.Host, glueAddress, glueAddress.A.Data)...)
 				}
 			}
-			auth = false
+			context.Auth = false
 			res = dns.RcodeNotAuth
 		} else {
 			switch qtype {
@@ -206,7 +201,7 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 						anameAnswer, anameRes := h.FetchRecord(record.ANAME.Location)
 						if anameRes == dns.RcodeSuccess {
 							ips := h.Filter(context, &anameAnswer.A)
-							answers = append(answers, h.A(qname, anameAnswer, ips)...)
+							context.Answer = append(context.Answer, h.A(qname, anameAnswer, ips)...)
 						} else if anameRes == dns.RcodeNotAuth {
 							upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeA)
 							if upstreamRes == dns.RcodeSuccess {
@@ -217,7 +212,7 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 										anameRecord = append(anameRecord, &dns.A{A: a.A, Hdr: dns.RR_Header{Rrtype: dns.TypeA, Name: qname, Ttl: a.Hdr.Ttl, Class: dns.ClassINET, Rdlength: 0}})
 									}
 								}
-								answers = append(answers, anameRecord...)
+								context.Answer = append(context.Answer, anameRecord...)
 							}
 							res = upstreamRes
 						} else {
@@ -226,7 +221,7 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 					}
 				} else {
 					ips := h.Filter(context, &record.A)
-					answers = append(answers, h.A(qname, record, ips)...)
+					context.Answer = append(context.Answer, h.A(qname, record, ips)...)
 				}
 			case dns.TypeAAAA:
 				if len(record.AAAA.Data) == 0 {
@@ -234,7 +229,7 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 						anameAnswer, anameRes := h.FetchRecord(record.ANAME.Location)
 						if anameRes == dns.RcodeSuccess {
 							ips := h.Filter(context, &anameAnswer.AAAA)
-							answers = append(answers, h.AAAA(qname, anameAnswer, ips)...)
+							context.Answer = append(context.Answer, h.AAAA(qname, anameAnswer, ips)...)
 						} else if anameRes == dns.RcodeNotAuth {
 							upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeAAAA)
 							if upstreamRes == dns.RcodeSuccess {
@@ -245,7 +240,7 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 										anameRecord = append(anameRecord, &dns.AAAA{AAAA: a.AAAA, Hdr: dns.RR_Header{Rrtype: dns.TypeAAAA, Name: qname, Ttl: a.Hdr.Ttl, Class: dns.ClassINET, Rdlength: 0}})
 									}
 								}
-								answers = append(answers, anameRecord...)
+								context.Answer = append(context.Answer, anameRecord...)
 							}
 							res = upstreamRes
 						} else {
@@ -254,87 +249,74 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 					}
 				} else {
 					ips := h.Filter(context, &record.AAAA)
-					answers = append(answers, h.AAAA(qname, record, ips)...)
+					context.Answer = append(context.Answer, h.AAAA(qname, record, ips)...)
 				}
 			case dns.TypeCNAME:
-				answers = append(answers, h.CNAME(qname, record)...)
+				context.Answer = append(context.Answer, h.CNAME(qname, record)...)
 			case dns.TypeTXT:
-				answers = append(answers, h.TXT(qname, record)...)
+				context.Answer = append(context.Answer, h.TXT(qname, record)...)
 			case dns.TypeNS:
-				answers = append(answers, h.NS(qname, record)...)
+				context.Answer = append(context.Answer, h.NS(qname, record)...)
 			case dns.TypeMX:
-				answers = append(answers, h.MX(qname, record)...)
+				context.Answer = append(context.Answer, h.MX(qname, record)...)
 			case dns.TypeSRV:
-				answers = append(answers, h.SRV(qname, record)...)
+				context.Answer = append(context.Answer, h.SRV(qname, record)...)
 			case dns.TypeCAA:
 				caaRecord := h.FindCAA(record)
 				if caaRecord != nil {
-					answers = append(answers, h.CAA(qname, caaRecord)...)
+					context.Answer = append(context.Answer, h.CAA(qname, caaRecord)...)
 				}
 			case dns.TypePTR:
-				answers = append(answers, h.PTR(qname, record)...)
+				context.Answer = append(context.Answer, h.PTR(qname, record)...)
 			case dns.TypeTLSA:
-				answers = append(answers, h.TLSA(qname, record)...)
+				context.Answer = append(context.Answer, h.TLSA(qname, record)...)
 			case dns.TypeSOA:
-				answers = append(answers, record.Zone.Config.SOA.Data)
+				context.Answer = append(context.Answer, record.Zone.Config.SOA.Data)
 			case dns.TypeDNSKEY:
 				if record.Zone.Config.DnsSec {
-					answers = []dns.RR{record.Zone.ZSK.DnsKey, record.Zone.KSK.DnsKey}
+					context.Answer = []dns.RR{record.Zone.ZSK.DnsKey, record.Zone.KSK.DnsKey}
 				}
 			default:
-				answers = []dns.RR{}
-				authority = []dns.RR{}
+				context.Answer = []dns.RR{}
+				context.Authority = []dns.RR{}
 				res = dns.RcodeNotImplemented
 			}
-			if len(answers) == 0 {
+			if len(context.Answer) == 0 {
 				if originalRecord.CNAME != nil {
-					answers = append(answers, h.CNAME(qname, record)...)
+					context.Answer = append(context.Answer, h.CNAME(qname, record)...)
 				} else {
-					authority = append(authority, originalRecord.Zone.Config.SOA.Data)
+					context.Authority = append(context.Authority, originalRecord.Zone.Config.SOA.Data)
 				}
 			}
 		}
 	} else if localRes == dns.RcodeNameError {
-		answers = []dns.RR{}
-		authority = append(authority, originalRecord.Zone.Config.SOA.Data)
+		context.Answer = []dns.RR{}
+		context.Authority = append(context.Authority, originalRecord.Zone.Config.SOA.Data)
 	} else if localRes == dns.RcodeNotAuth {
 		if originalRecord != nil && originalRecord.CNAME != nil {
-			if len(answers) == 0 {
-				answers = append(answers, h.CNAME(qname, originalRecord)...)
+			if len(context.Answer) == 0 {
+				context.Answer = append(context.Answer, h.CNAME(qname, originalRecord)...)
 			}
 			res = dns.RcodeSuccess
 		}
 	}
 
-	if auth && context.Do() && originalRecord != nil && originalRecord.Zone.Config.DnsSec {
+	if context.Auth && context.Do() && originalRecord != nil && originalRecord.Zone.Config.DnsSec {
 		switch res {
 		case dns.RcodeSuccess:
-			if len(answers) == 0 {
-				authority = append(authority, NSec(qname, originalRecord.Zone))
+			if len(context.Answer) == 0 {
+				context.Authority = append(context.Authority, NSec(qname, originalRecord.Zone))
 			}
 		case dns.RcodeNameError:
-			authority = append(authority, NSec(qname, originalRecord.Zone))
+			context.Authority = append(context.Authority, NSec(qname, originalRecord.Zone))
 			res = dns.RcodeSuccess
 		}
-		answers = Sign(answers, qname, originalRecord)
-		authority = Sign(authority, qname, originalRecord)
+		context.Answer = Sign(context.Answer, qname, originalRecord)
+		context.Authority = Sign(context.Authority, qname, originalRecord)
 	}
 
 	h.LogRequest(context, res)
-	m := new(dns.Msg)
-	m.SetReply(context.Req)
-	m.Authoritative, m.RecursionAvailable, m.Compress = auth, false, true
-	m.SetRcode(context.Req, res)
-	m.Answer = append(m.Answer, answers...)
-	m.Ns = append(m.Ns, authority...)
-	m.Extra = append(m.Extra, additional...)
-
-	context.SizeAndDo(m)
-	m = context.Scrub(m)
-	if err := context.W.WriteMsg(m); err != nil {
-		logger.Default.Error("write error : ", err, " msg : ", m.String())
-		_ = context.W.Close()
-	}
+	context.Response(res)
 }
 
 func (h *DnsRequestHandler) Filter(state *RequestContext, rrset *IP_RRSet) []IP_RR {
