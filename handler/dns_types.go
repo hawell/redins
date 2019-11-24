@@ -35,22 +35,6 @@ type ZoneKey struct {
 	KeyExpiration uint32
 }
 
-type ZoneConfig struct {
-	DomainId        string     `json:"domain_id,omitempty"`
-	SOA             *SOA_RRSet `json:"soa,omitempty"`
-	DnsSec          bool       `json:"dnssec,omitempty"`
-	CnameFlattening bool       `json:"cname_flattening,omitempty"`
-}
-
-type Zone struct {
-	Name      string
-	Config    ZoneConfig
-	Locations map[string]struct{}
-	ZSK       *ZoneKey
-	KSK       *ZoneKey
-	DnsKeySig dns.RR
-}
-
 type IP_RRSet struct {
 	FilterConfig      IpFilterConfig      `json:"filter,omitempty"`
 	HealthCheckConfig IpHealthCheckConfig `json:"health_check,omitempty"`

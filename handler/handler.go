@@ -630,75 +630,6 @@ func (h *DnsRequestHandler) getTtl(ttl uint32) uint32 {
 	return ttl
 }
 
-func (h *DnsRequestHandler) findLocation(query string, z *Zone) string {
-	var (
-		ok                bool
-		closestEncloser   string
-		sourceOfSynthesis string
-	)
-
-	// request for zone records
-	if query == z.Name {
-		return query
-	}
-
-	query = strings.TrimSuffix(query, "."+z.Name)
-
-	if _, ok = z.Locations[query]; ok {
-		return query
-	}
-
-	closestEncloser, sourceOfSynthesis, ok = splitQuery(query)
-	for ok {
-		ceExists := keyMatches(closestEncloser, z) || keyExists(closestEncloser, z)
-		ssExists := keyExists(sourceOfSynthesis, z)
-		if ceExists {
-			if ssExists {
-				return sourceOfSynthesis
-			} else {
-				return ""
-			}
-		} else {
-			closestEncloser, sourceOfSynthesis, ok = splitQuery(closestEncloser)
-		}
-	}
-	return ""
-}
-
-func keyExists(key string, z *Zone) bool {
-	_, ok := z.Locations[key]
-	return ok
-}
-
-func keyMatches(key string, z *Zone) bool {
-	for value := range z.Locations {
-		if strings.HasSuffix(value, key) {
-			return true
-		}
-	}
-	return false
-}
-
-func splitQuery(query string) (string, string, bool) {
-	if query == "" {
-		return "", "", false
-	}
-	var (
-		splits            []string
-		closestEncloser   string
-		sourceOfSynthesis string
-	)
-	splits = strings.SplitAfterN(query, ".", 2)
-	if len(splits) == 2 {
-		closestEncloser = splits[1]
-		sourceOfSynthesis = "*." + closestEncloser
-	} else {
-		closestEncloser = ""
-		sourceOfSynthesis = "*"
-	}
-	return closestEncloser, sourceOfSynthesis, true
-}
-
 func split255(s string) []string {
 	if len(s) < 255 {
 		return []string{s}
@@ -743,7 +674,7 @@ func (h *DnsRequestHandler) GetRecord(qname string) (record *Record, rcode int) 
 		return nil, dns.RcodeServerFailure
 	}
 
-	location := h.findLocation(qname, z)
+	location := z.findLocation(qname)
 	if len(location) == 0 { // empty, no results
 		return &Record{Name: qname, Zone: z}, dns.RcodeNameError
 	}
@@ -794,85 +725,49 @@ func (h *DnsRequestHandler) LoadZone(zone string) *Zone {
 		return cachedZone.(*Zone)
 	}
 
-	z := new(Zone)
-	z.Name = zone
-	vals, err := h.Redis.GetHKeys("redins:zones:" + zone)
+	locations, err := h.Redis.GetHKeys("redins:zones:" + zone)
 	if err != nil {
 		logger.Default.Errorf("cannot load zone %s locations : %s", zone, err)
 	}
-	z.Locations = make(map[string]struct{})
-	for _, val := range vals {
-		z.Locations[val] = struct{}{}
-	}
-
-	z.Config = ZoneConfig{
-		DnsSec:          false,
-		CnameFlattening: false,
-		SOA: &SOA_RRSet{
-			Ns:      "ns1." + z.Name,
-			MinTtl:  300,
-			Refresh: 86400,
-			Retry:   7200,
-			Expire:  3600,
-			MBox:    "hostmaster." + z.Name,
-			Serial:  uint32(time.Now().Unix()),
-			Ttl:     300,
-		},
-	}
-	val, err := h.Redis.Get("redins:zones:" + zone + ":config")
+	config, err := h.Redis.Get("redins:zones:" + zone + ":config")
 	if err != nil {
 		logger.Default.Errorf("cannot load zone %s config : %s", zone, err)
 	}
-	if len(val) > 0 {
-		err := jsoniter.Unmarshal([]byte(val), &z.Config)
-		if err != nil {
-			logger.Default.Errorf("cannot parse zone config : %s", err)
-		}
-	}
-	z.Config.SOA.Ns = dns.Fqdn(z.Config.SOA.Ns)
-	z.Config.SOA.Data = &dns.SOA{
-		Hdr:     dns.RR_Header{Name: z.Name, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: z.Config.SOA.Ttl, Rdlength: 0},
-		Ns:      z.Config.SOA.Ns,
-		Mbox:    z.Config.SOA.MBox,
-		Refresh: z.Config.SOA.Refresh,
-		Retry:   z.Config.SOA.Retry,
-		Expire:  z.Config.SOA.Expire,
-		Minttl:  z.Config.SOA.MinTtl,
-		Serial:  z.Config.SOA.Serial,
-	}
 
-	z = func() *Zone {
-		if z.Config.DnsSec {
-			z.ZSK = h.loadKey("redins:zones:"+z.Name+":zsk:pub", "redins:zones:"+z.Name+":zsk:priv")
-			if z.ZSK == nil {
-				z.Config.DnsSec = false
-				return z
-			}
-			z.KSK = h.loadKey("redins:zones:"+z.Name+":ksk:pub", "redins:zones:"+z.Name+":ksk:priv")
-			if z.KSK == nil {
-				z.Config.DnsSec = false
-				return z
-			}
-
-			z.ZSK.DnsKey.Flags = 256
-			z.KSK.DnsKey.Flags = 257
-			if z.ZSK.DnsKey.Hdr.Ttl != z.KSK.DnsKey.Hdr.Ttl {
-				z.ZSK.DnsKey.Hdr.Ttl = z.KSK.DnsKey.Hdr.Ttl
-			}
-
-			if rrsig, err := sign([]dns.RR{z.ZSK.DnsKey, z.KSK.DnsKey}, z.Name, z.KSK, z.KSK.DnsKey.Hdr.Ttl); err == nil {
-				z.DnsKeySig = rrsig
-			} else {
-				logger.Default.Errorf("cannot create RRSIG for DNSKEY : %s", err)
-				z.Config.DnsSec = false
-				return z
-			}
-		}
-		return z
-	}()
+	z := NewZone(zone, locations, config)
+	h.LoadZoneKeys(z)
 
 	h.ZoneCache.Set(zone, z, time.Duration(h.Config.CacheTimeout)*time.Second)
 	return z
+}
+
+func (h *DnsRequestHandler) LoadZoneKeys(z *Zone) {
+	if z.Config.DnsSec {
+		z.ZSK = h.loadKey("redins:zones:"+z.Name+":zsk:pub", "redins:zones:"+z.Name+":zsk:priv")
+		if z.ZSK == nil {
+			z.Config.DnsSec = false
+			return
+		}
+		z.KSK = h.loadKey("redins:zones:"+z.Name+":ksk:pub", "redins:zones:"+z.Name+":ksk:priv")
+		if z.KSK == nil {
+			z.Config.DnsSec = false
+			return
+		}
+
+		z.ZSK.DnsKey.Flags = 256
+		z.KSK.DnsKey.Flags = 257
+		if z.ZSK.DnsKey.Hdr.Ttl != z.KSK.DnsKey.Hdr.Ttl {
+			z.ZSK.DnsKey.Hdr.Ttl = z.KSK.DnsKey.Hdr.Ttl
+		}
+
+		if rrsig, err := sign([]dns.RR{z.ZSK.DnsKey, z.KSK.DnsKey}, z.Name, z.KSK, z.KSK.DnsKey.Hdr.Ttl); err == nil {
+			z.DnsKeySig = rrsig
+		} else {
+			logger.Default.Errorf("cannot create RRSIG for DNSKEY : %s", err)
+			z.Config.DnsSec = false
+			return
+		}
+	}
 }
 
 func (h *DnsRequestHandler) LoadLocation(location string, z *Zone) *Record {
