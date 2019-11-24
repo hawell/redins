@@ -5,12 +5,10 @@ import (
 	"github.com/json-iterator/go"
 	"github.com/sirupsen/logrus"
 	"math/rand"
-	"net"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/coredns/coredns/request"
 	"github.com/hashicorp/go-immutable-radix"
 	"github.com/hawell/logger"
 	"github.com/hawell/uperdis"
@@ -130,29 +128,20 @@ func (h *DnsRequestHandler) ShutDown() {
 	logger.Default.Debug("handler : stopped")
 }
 
-func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
+func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 	// TODO: refactor handle flow
-	qname := state.Name()
-	qtype := state.QType()
+	qname := context.Name()
+	qtype := context.QType()
 
-	logger.Default.Debugf("name : %s", state.Name())
-	logger.Default.Debugf("type : %s", state.Type())
-
-	requestStartTime := time.Now()
-
-	logData := map[string]interface{}{
-		"source_ip": state.IP(),
-		"record":    state.Name(),
-		"type":      state.Type(),
-	}
-	logData["client_subnet"] = GetSourceSubnet(state)
+	logger.Default.Debugf("name : %s", context.Name())
+	logger.Default.Debugf("type : %s", context.Type())
 
 	if h.Config.LogSourceLocation {
-		sourceIP := GetSourceIp(state)
+		sourceIP := context.SourceIp()
 		_, _, sourceCountry, _ := h.geoip.GetGeoLocation(sourceIP)
-		logData["source_country"] = sourceCountry
+		context.LogData["source_country"] = sourceCountry
 		sourceASN, _ := h.geoip.GetASN(sourceIP)
-		logData["source_asn"] = sourceASN
+		context.LogData["source_asn"] = sourceASN
 	}
 
 	auth := true
@@ -166,14 +155,14 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 	record, localRes = h.FetchRecord(qname)
 	originalRecord := record
 	if record != nil {
-		logData["domain_uuid"] = record.Zone.Config.DomainId
+		context.LogData["domain_uuid"] = record.Zone.Config.DomainId
 		if qtype != dns.TypeCNAME {
 			count := 0
 			for {
 				if count >= 10 {
 					answers = []dns.RR{}
 					localRes = dns.RcodeServerFailure
-					logger.Default.Errorf("CNAME loop in request %s->%s", state.Name(), state.Type())
+					logger.Default.Errorf("CNAME loop in request %s->%s", context.Name(), context.Type())
 					break
 				}
 				if localRes != dns.RcodeSuccess {
@@ -194,7 +183,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 			}
 		}
 	} else {
-		logData["domain_uuid"] = ""
+		context.LogData["domain_uuid"] = ""
 	}
 
 	res = localRes
@@ -217,7 +206,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 						// TODO: handle aname chain
 						anameAnswer, anameRes := h.FetchRecord(record.ANAME.Location)
 						if anameRes == dns.RcodeSuccess {
-							ips := h.Filter(state, &anameAnswer.A)
+							ips := h.Filter(context, &anameAnswer.A)
 							answers = append(answers, h.A(qname, anameAnswer, ips)...)
 						} else if anameRes == dns.RcodeNotAuth {
 							upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeA)
@@ -237,7 +226,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 						}
 					}
 				} else {
-					ips := h.Filter(state, &record.A)
+					ips := h.Filter(context, &record.A)
 					answers = append(answers, h.A(qname, record, ips)...)
 				}
 			case dns.TypeAAAA:
@@ -245,7 +234,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 					if record.ANAME != nil {
 						anameAnswer, anameRes := h.FetchRecord(record.ANAME.Location)
 						if anameRes == dns.RcodeSuccess {
-							ips := h.Filter(state, &anameAnswer.AAAA)
+							ips := h.Filter(context, &anameAnswer.AAAA)
 							answers = append(answers, h.AAAA(qname, anameAnswer, ips)...)
 						} else if anameRes == dns.RcodeNotAuth {
 							upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeAAAA)
@@ -265,7 +254,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 						}
 					}
 				} else {
-					ips := h.Filter(state, &record.AAAA)
+					ips := h.Filter(context, &record.AAAA)
 					answers = append(answers, h.AAAA(qname, record, ips)...)
 				}
 			case dns.TypeCNAME:
@@ -326,7 +315,7 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 		}
 	}
 
-	if auth && state.Do() && originalRecord != nil && originalRecord.Zone.Config.DnsSec {
+	if auth && context.Do() && originalRecord != nil && originalRecord.Zone.Config.DnsSec {
 		switch res {
 		case dns.RcodeSuccess:
 			if len(answers) == 0 {
@@ -340,35 +329,35 @@ func (h *DnsRequestHandler) HandleRequest(state *request.Request) {
 		authority = Sign(authority, qname, originalRecord)
 	}
 
-	h.LogRequest(logData, requestStartTime, res)
+	h.LogRequest(context, res)
 	m := new(dns.Msg)
-	m.SetReply(state.Req)
+	m.SetReply(context.Req)
 	m.Authoritative, m.RecursionAvailable, m.Compress = auth, h.Config.UpstreamFallback, true
-	m.SetRcode(state.Req, res)
+	m.SetRcode(context.Req, res)
 	m.Answer = append(m.Answer, answers...)
 	m.Ns = append(m.Ns, authority...)
 	m.Extra = append(m.Extra, additional...)
 
-	state.SizeAndDo(m)
-	m = state.Scrub(m)
-	if err := state.W.WriteMsg(m); err != nil {
+	context.SizeAndDo(m)
+	m = context.Scrub(m)
+	if err := context.W.WriteMsg(m); err != nil {
 		logger.Default.Error("write error : ", err, " msg : ", m.String())
-		_ = state.W.Close()
+		_ = context.W.Close()
 	}
 }
 
-func (h *DnsRequestHandler) Filter(request *request.Request, rrset *IP_RRSet) []IP_RR {
-	ips := h.healthcheck.FilterHealthcheck(request.Name(), rrset)
+func (h *DnsRequestHandler) Filter(state *RequestContext, rrset *IP_RRSet) []IP_RR {
+	ips := h.healthcheck.FilterHealthcheck(state.Name(), rrset)
 	switch rrset.FilterConfig.GeoFilter {
 	case "asn":
-		ips = h.geoip.GetSameASN(GetSourceIp(request), ips)
+		ips = h.geoip.GetSameASN(state.SourceIp(), ips)
 	case "country":
-		ips = h.geoip.GetSameCountry(GetSourceIp(request), ips)
+		ips = h.geoip.GetSameCountry(state.SourceIp(), ips)
 	case "asn+country":
-		ips = h.geoip.GetSameASN(GetSourceIp(request), ips)
-		ips = h.geoip.GetSameCountry(GetSourceIp(request), ips)
+		ips = h.geoip.GetSameASN(state.SourceIp(), ips)
+		ips = h.geoip.GetSameCountry(state.SourceIp(), ips)
 	case "location":
-		ips = h.geoip.GetMinimumDistance(GetSourceIp(request), ips)
+		ips = h.geoip.GetMinimumDistance(state.SourceIp(), ips)
 	default:
 	}
 	if len(ips) <= 1 {
@@ -404,41 +393,15 @@ func (h *DnsRequestHandler) Filter(request *request.Request, rrset *IP_RRSet) []
 	}
 }
 
-func (h *DnsRequestHandler) LogRequest(data map[string]interface{}, startTime time.Time, responseCode int) {
-	data["process_time"] = time.Since(startTime).Nanoseconds() / 1000000
-	data["response_code"] = responseCode
-	data["log_type"] = "request"
+func (h *DnsRequestHandler) LogRequest(state *RequestContext, responseCode int) {
+	state.LogData["process_time"] = time.Since(state.StartTime).Nanoseconds() / 1000000
+	state.LogData["response_code"] = responseCode
+	state.LogData["log_type"] = "request"
 	select {
-	case h.logQueue <- data:
+	case h.logQueue <- state.LogData:
 	default:
 		logger.Default.Warning("log queue is full")
 	}
-}
-
-func GetSourceIp(request *request.Request) net.IP {
-	opt := request.Req.IsEdns0()
-	if opt != nil && len(opt.Option) != 0 {
-		for _, o := range opt.Option {
-			switch v := o.(type) {
-			case *dns.EDNS0_SUBNET:
-				return v.Address
-			}
-		}
-	}
-	return net.ParseIP(request.IP())
-}
-
-func GetSourceSubnet(request *request.Request) string {
-	opt := request.Req.IsEdns0()
-	if opt != nil && len(opt.Option) != 0 {
-		for _, o := range opt.Option {
-			switch o.(type) {
-			case *dns.EDNS0_SUBNET:
-				return o.String()
-			}
-		}
-	}
-	return ""
 }
 
 func reverseZone(zone string) string {

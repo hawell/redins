@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"arvancloud/redins/handler"
-	"github.com/coredns/coredns/request"
 	"github.com/hawell/logger"
 	"github.com/hawell/uperdis"
 	"github.com/miekg/dns"
@@ -37,15 +36,15 @@ var (
 )
 
 func handleRequest(w dns.ResponseWriter, r *dns.Msg) {
-	state := request.Request{W: w, Req: r}
-	logger.Default.Debugf("handle request: [%d] %s %s", r.Id, state.Name(), state.Type())
+	context := handler.NewRequestContext(w, r)
+	logger.Default.Debugf("handle request: [%d] %s %s", r.Id, context.Name(), context.Type())
 
-	if l.CanHandle(state.IP()) {
-		h.HandleRequest(&state)
+	if l.CanHandle(context.IP()) {
+		h.HandleRequest(context)
 	} else {
 		msg := new(dns.Msg)
 		msg.SetRcode(r, dns.RcodeRefused)
-		state.W.WriteMsg(msg)
+		context.W.WriteMsg(msg)
 	}
 }
 

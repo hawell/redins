@@ -3,7 +3,6 @@ package handler
 import (
 	"arvancloud/redins/test"
 	"fmt"
-	"github.com/coredns/coredns/request"
 	"github.com/hawell/logger"
 	"github.com/hawell/uperdis"
 	"github.com/miekg/dns"
@@ -327,8 +326,8 @@ func TestDNSSEC(t *testing.T) {
 	{
 		r := dnskeyQuery.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		h.HandleRequest(&state)
+		state := NewRequestContext(w,r)
+		h.HandleRequest(state)
 		resp := w.Msg
 		// fmt.Println(resp.Answer)
 		for _, answer := range resp.Answer {
@@ -362,8 +361,8 @@ func TestDNSSEC(t *testing.T) {
 
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		h.HandleRequest(&state)
+		state := NewRequestContext(w,r)
+		h.HandleRequest(state)
 		resp := w.Msg
 		for _, rrs := range [][]dns.RR{tc0.Answer, tc0.Ns, resp.Answer, resp.Ns} {
 			s := 0

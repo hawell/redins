@@ -4,7 +4,6 @@ import (
 	"arvancloud/redins/test"
 	"errors"
 	"fmt"
-	"github.com/coredns/coredns/request"
 	"github.com/hawell/logger"
 	"github.com/hawell/uperdis"
 	"github.com/miekg/dns"
@@ -56,8 +55,8 @@ func defaultApplyAndVerify(testCase *TestCase, handler *DnsRequestHandler, t *te
 
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		handler.HandleRequest(&state)
+		state := NewRequestContext(w,r)
+		handler.HandleRequest(state)
 
 		resp := w.Msg
 
@@ -806,8 +805,8 @@ var testCases = []*TestCase{
 			for i := 0; i < 1000; i++ {
 				r := testCase.TestCases[0].Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := request.Request{W: w, Req: r}
-				handler.HandleRequest(&state)
+				state := NewRequestContext(w,r)
+				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if resp.Rcode != dns.RcodeSuccess {
@@ -835,8 +834,8 @@ var testCases = []*TestCase{
 			for i := 0; i < 1000; i++ {
 				r := testCase.TestCases[1].Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := request.Request{W: w, Req: r}
-				handler.HandleRequest(&state)
+				state := NewRequestContext(w,r)
+				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if resp.Rcode != dns.RcodeSuccess {
@@ -931,8 +930,8 @@ var testCases = []*TestCase{
 				r := tc.Msg()
 				r.Extra = append(r.Extra, opt)
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := request.Request{W: w, Req: r}
-				handler.HandleRequest(&state)
+				state := NewRequestContext(w,r)
+				handler.HandleRequest(state)
 
 				resp := w.Msg
 				resp.Extra = nil
@@ -1166,8 +1165,8 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[0]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := request.Request{W: w, Req: r}
-				handler.HandleRequest(&state)
+				state := NewRequestContext(w,r)
+				handler.HandleRequest(state)
 
 				resp := w.Msg
 
@@ -1181,8 +1180,8 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[1]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := request.Request{W: w, Req: r}
-				handler.HandleRequest(&state)
+				state := NewRequestContext(w,r)
+				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if len(resp.Answer) != 5 {
@@ -1216,8 +1215,8 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[2]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := request.Request{W: w, Req: r}
-				handler.HandleRequest(&state)
+				state := NewRequestContext(w,r)
+				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if len(resp.Answer) != 5 {
@@ -1323,8 +1322,8 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[0]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := request.Request{W: w, Req: r}
-				handler.HandleRequest(&state)
+				state := NewRequestContext(w,r)
+				handler.HandleRequest(state)
 
 				resp := w.Msg
 
@@ -1338,8 +1337,8 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[1]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := request.Request{W: w, Req: r}
-				handler.HandleRequest(&state)
+				state := NewRequestContext(w,r)
+				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if len(resp.Answer) != 1 {
@@ -1373,8 +1372,8 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[2]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := request.Request{W: w, Req: r}
-				handler.HandleRequest(&state)
+				state := NewRequestContext(w,r)
+				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if len(resp.Answer) != 1 {
@@ -1476,8 +1475,8 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[0]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := request.Request{W: w, Req: r}
-				handler.HandleRequest(&state)
+				state := NewRequestContext(w,r)
+				handler.HandleRequest(state)
 
 				resp := w.Msg
 				// fmt.Println(resp)
@@ -1497,8 +1496,8 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[0]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := request.Request{W: w, Req: r}
-				handler.HandleRequest(&state)
+				state := NewRequestContext(w,r)
+				handler.HandleRequest(state)
 
 				resp := w.Msg
 				// fmt.Println(resp)
@@ -1678,8 +1677,8 @@ var testCases = []*TestCase{
 			tc := testCase.TestCases[0]
 			r := tc.Msg()
 			w := test.NewRecorder(&test.ResponseWriter{})
-			state := request.Request{W: w, Req: r}
-			handler.HandleRequest(&state)
+			state := NewRequestContext(w,r)
+			handler.HandleRequest(state)
 
 			resp := w.Msg
 			if resp.Rcode != dns.RcodeSuccess {
@@ -1692,8 +1691,8 @@ var testCases = []*TestCase{
 			tc = testCase.TestCases[0]
 			r = tc.Msg()
 			w = test.NewRecorder(&test.ResponseWriter{})
-			state = request.Request{W: w, Req: r}
-			handler.HandleRequest(&state)
+			state = NewRequestContext(w,r)
+			handler.HandleRequest(state)
 
 			resp = w.Msg
 			if resp.Rcode != dns.RcodeNotAuth {

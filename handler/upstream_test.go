@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"arvancloud/redins/test"
-	"github.com/coredns/coredns/request"
 	"github.com/hawell/logger"
 	"github.com/hawell/uperdis"
 	"github.com/miekg/dns"
@@ -81,8 +80,8 @@ func TestFallback(t *testing.T) {
 
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := request.Request{W: w, Req: r}
-	h.HandleRequest(&state)
+	state := NewRequestContext(w, r)
+	h.HandleRequest(state)
 
 	resp := w.Msg
 
@@ -117,8 +116,8 @@ func TestAsyncQuery(t *testing.T) {
 
 			r := tc.Msg()
 			w := test.NewRecorder(&test.ResponseWriter{})
-			state := request.Request{W: w, Req: r}
-			h.HandleRequest(&state)
+			state := NewRequestContext(w, r)
+			h.HandleRequest(state)
 
 			resp := w.Msg
 			if err := test.SortAndCheck(resp, tc); err != nil {

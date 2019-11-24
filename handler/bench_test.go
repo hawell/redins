@@ -2,7 +2,6 @@ package handler
 
 import (
 	"arvancloud/redins/test"
-	"github.com/coredns/coredns/request"
 	"github.com/hawell/logger"
 	"github.com/miekg/dns"
 	"log"
@@ -62,8 +61,8 @@ func BenchmarkA(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		benchTestHandler.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		benchTestHandler.HandleRequest(state)
 
 		resp = w.Msg
 	}
@@ -78,8 +77,8 @@ func BenchmarkAAAA(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		benchTestHandler.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		benchTestHandler.HandleRequest(state)
 
 		resp = w.Msg
 	}
@@ -94,8 +93,8 @@ func BenchmarkCNAME(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		benchTestHandler.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		benchTestHandler.HandleRequest(state)
 
 		resp = w.Msg
 	}
@@ -110,8 +109,8 @@ func BenchmarkNXDomain(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		benchTestHandler.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		benchTestHandler.HandleRequest(state)
 
 		resp = w.Msg
 	}
@@ -126,8 +125,8 @@ func BenchmarkNotAuth(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		benchTestHandler.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		benchTestHandler.HandleRequest(state)
 
 		resp = w.Msg
 	}

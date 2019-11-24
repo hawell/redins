@@ -5,7 +5,6 @@ import (
 	"arvancloud/redins/test"
 	"bytes"
 	"fmt"
-	"github.com/coredns/coredns/request"
 	"github.com/hawell/logger"
 	"github.com/hawell/uperdis"
 	jsoniter "github.com/json-iterator/go"
@@ -96,8 +95,8 @@ func TestJsonLog(t *testing.T) {
 	}
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := request.Request{W: w, Req: r}
-	h.HandleRequest(&state)
+	state := NewRequestContext(w,r)
+	h.HandleRequest(state)
 	time.Sleep(time.Millisecond * 100)
 	b, _ := ioutil.ReadFile("/tmp/test.log")
 	m1 := map[string]interface{}{
@@ -146,9 +145,9 @@ func TestCapnpLog(t *testing.T) {
 	}
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := request.Request{W: w, Req: r}
-	h.HandleRequest(&state)
-	h.HandleRequest(&state)
+	state := NewRequestContext(w,r)
+	h.HandleRequest(state)
+	h.HandleRequest(state)
 	time.Sleep(time.Millisecond * 100)
 	logFile, err := os.OpenFile("/tmp/test.log", os.O_RDONLY, 0666)
 	if err != nil {
@@ -193,8 +192,8 @@ func TestCapnpLogNotAuth(t *testing.T) {
 	}
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := request.Request{W: w, Req: r}
-	h.HandleRequest(&state)
+	state := NewRequestContext(w,r)
+	h.HandleRequest(state)
 	time.Sleep(time.Millisecond * 100)
 	logFile, err := os.OpenFile("/tmp/test.log", os.O_RDONLY, 0666)
 	if err != nil {
@@ -259,8 +258,8 @@ func TestKafkaCapnpLog(t *testing.T) {
 	r := tc.Msg()
 	r.Extra = append(r.Extra, opt)
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := request.Request{W: w, Req: r}
-	h.HandleRequest(&state)
+	state := NewRequestContext(w,r)
+	h.HandleRequest(state)
 	time.Sleep(time.Second)
 }
 
@@ -331,8 +330,8 @@ func TestUdpCapnpLog(t *testing.T){
 	}
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := request.Request{W: w, Req: r}
-	h.HandleRequest(&state)
-	h.HandleRequest(&state)
+	state := NewRequestContext(w,r)
+	h.HandleRequest(state)
+	h.HandleRequest(state)
 	time.Sleep(time.Millisecond * 100)
 }
