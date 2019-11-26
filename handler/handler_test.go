@@ -2073,6 +2073,51 @@ var testCases = []*TestCase{
 			},
 		},
 	},
+	{
+		Name:           "ANAME ttl",
+		Description:    "test ttl value for aname queries",
+		Enabled:        true,
+		Config:         defaultConfig,
+		Initialize:     func(testCase *TestCase) (handler *DnsRequestHandler, e error) {
+			testCase.Config.MaxTtl = 456
+			return defaultInitialize(testCase)
+		},
+		ApplyAndVerify: defaultApplyAndVerify,
+		Zones:          []string{"arvancloud.com.", "arvan.an."},
+		ZoneConfigs: []string{
+			`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.arvancloud.com.","ns":"ns1.arvancloud.com.","refresh":44,"retry":55,"expire":66}}`,
+			`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.arvan.an.","ns":"ns1.arvan.an.","refresh":44,"retry":55,"expire":66}}`,
+		},
+		Entries: [][][]string{
+			{
+				{"@",
+					`{"aname":{"location":"aname.arvan.an."}}`,
+				},
+				{"upstream",
+					`{"aname":{"location":"dns.msftncsi.com."}}`,
+				},
+			},
+			{
+				{"aname",
+					`{"a":{"ttl":180, "records":[{"ip":"6.5.6.5"}]}, "aaaa":{"ttl":300, "records":[{"ip":"::1"}]}}`,
+				},
+			},
+		},
+		TestCases: []test.Case{
+			{
+				Qname: "arvancloud.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("arvancloud.com. 180 IN A 6.5.6.5"),
+				},
+			},
+			{
+				Qname: "upstream.arvancloud.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("upstream.arvancloud.com. 456 IN A 131.107.255.255"),
+				},
+			},
+		},
+	},
 }
 
 func center(s string, w int) string {

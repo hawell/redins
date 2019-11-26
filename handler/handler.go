@@ -223,16 +223,20 @@ loop:
 				switch context.QType() {
 				case dns.TypeA:
 					var ips []IP_RR
+					var ttl uint32
 					if len(currentRecord.A.Data) == 0 && currentRecord.ANAME != nil {
-						ips, res = h.FindANAME(context, currentRecord.ANAME.Location, dns.TypeA)
+						ips, res, ttl = h.FindANAME(context, currentRecord.ANAME.Location, dns.TypeA)
+						currentRecord.A.Ttl = ttl
 					} else {
 						ips = h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.A)
 					}
 					context.Answer = append(context.Answer, h.A(currentQName, currentRecord, ips)...)
 				case dns.TypeAAAA:
 					var ips []IP_RR
+					var ttl uint32
 					if len(currentRecord.AAAA.Data) == 0 && currentRecord.ANAME != nil {
-						ips, res = h.FindANAME(context, currentRecord.ANAME.Location, dns.TypeAAAA)
+						ips, res, ttl = h.FindANAME(context, currentRecord.ANAME.Location, dns.TypeAAAA)
+						currentRecord.AAAA.Ttl = ttl
 					} else {
 						ips = h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.AAAA)
 					}
@@ -751,7 +755,7 @@ func (h *DnsRequestHandler) FindCAA(record *Record) *Record {
 	return nil
 }
 
-func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qtype uint16) ([]IP_RR, int) {
+func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qtype uint16) ([]IP_RR, int, uint32) {
 	logger.Default.Debug("finding aname")
 	currentQName := aname
 	currentRecord := &Record{}
@@ -759,7 +763,7 @@ func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qty
 	for {
 		if loopCount > 10 {
 			logger.Default.Errorf("ANAME loop in request %s->%s", context.Name(), context.Type())
-			return []IP_RR{}, dns.RcodeServerFailure
+			return []IP_RR{}, dns.RcodeServerFailure, 0
 		}
 		loopCount++
 
@@ -778,14 +782,14 @@ func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qty
 					}
 				}
 			}
-			return ips, upstreamRes
+			return ips, upstreamRes, 0
 		}
 
 		zone := h.LoadZone(zoneName)
 		location, _ := zone.FindLocation(currentQName)
 		if location == "" {
 			logger.Default.Debug("location not found")
-			return []IP_RR{}, dns.RcodeNameError
+			return []IP_RR{}, dns.RcodeNameError, 0
 		}
 
 		currentRecord = h.LoadLocation(location, zone)
@@ -797,10 +801,10 @@ func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qty
 
 		if qtype == dns.TypeA && len(currentRecord.A.Data) > 0 {
 			logger.Default.Debug("found a")
-			return h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.A), dns.RcodeSuccess
+			return h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.A), dns.RcodeSuccess, currentRecord.A.Ttl
 		} else if qtype == dns.TypeAAAA && len(currentRecord.AAAA.Data) > 0 {
 			logger.Default.Debug("found aaaa")
-			return h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.AAAA), dns.RcodeSuccess
+			return h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.AAAA), dns.RcodeSuccess, currentRecord.AAAA.Ttl
 		}
 
 		if currentRecord.ANAME != nil {
@@ -809,6 +813,6 @@ func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qty
 			continue
 		}
 
-		return []IP_RR{}, dns.RcodeSuccess
+		return []IP_RR{}, dns.RcodeSuccess, 0
 	}
 }
