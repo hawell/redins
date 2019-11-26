@@ -119,10 +119,10 @@ func httpCheck(url string, host string, timeout time.Duration) error {
 // FIXME: ping check is not working properly
 func pingCheck(ip string, timeout time.Duration) error {
 	c, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
-	c.SetDeadline(time.Now().Add(timeout))
 	if err != nil {
 		return err
 	}
+	c.SetDeadline(time.Now().Add(timeout))
 	defer c.Close()
 
 	id := int(binary.BigEndian.Uint32(net.ParseIP(ip)))

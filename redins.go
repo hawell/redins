@@ -289,7 +289,7 @@ func Verify(configFile string) {
 		printResult(msg, err)
 	}
 
-	checkRedis:= func(config *uperdis.RedisConfig) {
+	checkRedis := func(config *uperdis.RedisConfig) {
 		fmt.Println("checking redis...")
 		rd := uperdis.NewRedis(config)
 		msg := fmt.Sprintf("checking whether %s://%s is available", config.Net, config.Address)
@@ -321,7 +321,7 @@ func Verify(configFile string) {
 		if config.Target == "file" {
 			msg = fmt.Sprintf("checking file target : %s", config.Path)
 			var file *os.File
-			file, err = os.OpenFile(config.Target, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
+			file, err = os.OpenFile(config.Target, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 			if err == nil {
 				file.Close()
 			}
@@ -396,13 +396,13 @@ func Verify(configFile string) {
 			}
 			printResult(msg, err)
 		}
-		if config.Sentry.Enable{
+		if config.Sentry.Enable {
 			msg = fmt.Sprintf("checking sentry at %s", config.Sentry.DSN)
 			err = nil
 			var client *raven.Client
 			client, err = raven.New(config.Sentry.DSN)
 			if err == nil {
-				packet := raven.NewPacket("test message",nil)
+				packet := raven.NewPacket("test message", nil)
 				eventID, ch := client.Capture(packet, nil)
 				if eventID != "" {
 					err = <-ch
@@ -413,7 +413,7 @@ func Verify(configFile string) {
 			}
 			printResult(msg, err)
 		}
-		if config.Syslog.Enable{
+		if config.Syslog.Enable {
 			msg = fmt.Sprintf("checking syslog at %s", config.Syslog.Address)
 			var w *syslog.Writer
 			w, err = syslog.Dial(config.Syslog.Protocol, config.Syslog.Address, syslog.LOG_ERR, "syslog test")

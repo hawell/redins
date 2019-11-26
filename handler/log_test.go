@@ -95,7 +95,7 @@ func TestJsonLog(t *testing.T) {
 	}
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := NewRequestContext(w,r)
+	state := NewRequestContext(w, r)
 	h.HandleRequest(state)
 	time.Sleep(time.Millisecond * 100)
 	b, _ := ioutil.ReadFile("/tmp/test.log")
@@ -145,7 +145,7 @@ func TestCapnpLog(t *testing.T) {
 	}
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := NewRequestContext(w,r)
+	state := NewRequestContext(w, r)
 	h.HandleRequest(state)
 	h.HandleRequest(state)
 	time.Sleep(time.Millisecond * 100)
@@ -192,7 +192,7 @@ func TestCapnpLogNotAuth(t *testing.T) {
 	}
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := NewRequestContext(w,r)
+	state := NewRequestContext(w, r)
 	h.HandleRequest(state)
 	time.Sleep(time.Millisecond * 100)
 	logFile, err := os.OpenFile("/tmp/test.log", os.O_RDONLY, 0666)
@@ -258,12 +258,12 @@ func TestKafkaCapnpLog(t *testing.T) {
 	r := tc.Msg()
 	r.Extra = append(r.Extra, opt)
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := NewRequestContext(w,r)
+	state := NewRequestContext(w, r)
 	h.HandleRequest(state)
 	time.Sleep(time.Second)
 }
 
-func TestUdpCapnpLog(t *testing.T){
+func TestUdpCapnpLog(t *testing.T) {
 	go func() {
 		pc, err := net.ListenPacket("udp", "localhost:9090")
 		if err != nil {
@@ -330,7 +330,7 @@ func TestUdpCapnpLog(t *testing.T){
 	}
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := NewRequestContext(w,r)
+	state := NewRequestContext(w, r)
 	h.HandleRequest(state)
 	h.HandleRequest(state)
 	time.Sleep(time.Millisecond * 100)

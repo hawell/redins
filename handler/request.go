@@ -10,12 +10,15 @@ import (
 
 type RequestContext struct {
 	request.Request
-	StartTime time.Time
-	LogData map[string]interface{}
-	Auth bool
-	Answer []dns.RR
-	Authority []dns.RR
+	StartTime  time.Time
+	LogData    map[string]interface{}
+	Auth       bool
+	Answer     []dns.RR
+	Authority  []dns.RR
 	Additional []dns.RR
+
+	SourceIp     net.IP
+	SourceSubnet string
 }
 
 func NewRequestContext(w dns.ResponseWriter, r *dns.Msg) *RequestContext {
@@ -26,18 +29,20 @@ func NewRequestContext(w dns.ResponseWriter, r *dns.Msg) *RequestContext {
 			Zone: "",
 		},
 		StartTime: time.Now(),
-		Auth: true,
+		Auth:      true,
 	}
+	context.SourceIp = context.sourceIp()
+	context.SourceSubnet = context.sourceSubnet()
 	context.LogData = map[string]interface{}{
-		"source_ip": context.IP(),
-		"record":    context.Name(),
-		"type":      context.Type(),
-		"client_subnet": context.SourceSubnet(),
+		"source_ip":     context.SourceIp,
+		"record":        context.Name(),
+		"type":          context.Type(),
+		"client_subnet": context.SourceSubnet,
 	}
 	return context
 }
 
-func (context *RequestContext) SourceIp() net.IP {
+func (context *RequestContext) sourceIp() net.IP {
 	opt := context.Req.IsEdns0()
 	if opt != nil && len(opt.Option) != 0 {
 		for _, o := range opt.Option {
@@ -50,7 +55,7 @@ func (context *RequestContext) SourceIp() net.IP {
 	return net.ParseIP(context.IP())
 }
 
-func (context *RequestContext) SourceSubnet() string {
+func (context *RequestContext) sourceSubnet() string {
 	opt := context.Req.IsEdns0()
 	if opt != nil && len(opt.Option) != 0 {
 		for _, o := range opt.Option {

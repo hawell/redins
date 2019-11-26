@@ -5,6 +5,7 @@ import (
 	"github.com/json-iterator/go"
 	"github.com/sirupsen/logrus"
 	"math/rand"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -127,210 +128,184 @@ func (h *DnsRequestHandler) ShutDown() {
 	logger.Default.Debug("handler : stopped")
 }
 
+func (h *DnsRequestHandler) Response(context *RequestContext, res int) {
+	h.LogRequest(context, res)
+	context.Response(res)
+}
+
 func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
-	// TODO: refactor handle flow
-	qname := context.Name()
-	qtype := context.QType()
-
-	logger.Default.Debugf("name : %s", context.Name())
-	logger.Default.Debugf("type : %s", context.Type())
-
+	logger.Default.Debugf("[%d] start handle request - name : %s, type : %s", context.Req.Id, context.Name(), context.Type())
 	if h.Config.LogSourceLocation {
-		sourceIP := context.SourceIp()
+		sourceIP := context.SourceIp
 		_, _, sourceCountry, _ := h.geoip.GetGeoLocation(sourceIP)
 		context.LogData["source_country"] = sourceCountry
 		sourceASN, _ := h.geoip.GetASN(sourceIP)
 		context.LogData["source_asn"] = sourceASN
 	}
 
-	var record *Record
-	var localRes int
-	var res int
-	record, localRes = h.FetchRecord(qname)
-	originalRecord := record
-	if record != nil {
-		context.LogData["domain_uuid"] = record.Zone.Config.DomainId
-		if qtype != dns.TypeCNAME {
-			count := 0
-			for {
-				if count >= 10 {
-					context.Answer = []dns.RR{}
-					localRes = dns.RcodeServerFailure
-					logger.Default.Errorf("CNAME loop in request %s->%s", context.Name(), context.Type())
-					break
-				}
-				if localRes != dns.RcodeSuccess {
-					break
-				}
-				if record.CNAME == nil {
-					break
-				}
-				if !record.Zone.Config.CnameFlattening {
-					context.Answer = append(context.Answer, h.CNAME(qname, record)...)
-					if h.Matches(record.CNAME.Host) != originalRecord.Zone.Name {
-						break
-					}
-					qname = record.CNAME.Host
-				}
-				record, localRes = h.FetchRecord(record.CNAME.Host)
-				count++
-			}
-		}
-	} else {
+	zoneName := h.FindZone(context.Name())
+	if zoneName == "" {
 		context.LogData["domain_uuid"] = ""
+		h.Response(context, dns.RcodeNotAuth)
+		return
 	}
 
-	res = localRes
-	if localRes == dns.RcodeSuccess {
-		if qname != originalRecord.Zone.Name && len(record.NS.Data) > 0 {
-			context.Authority = append(context.Authority, h.NS(qname, record)...)
-			for _, ns := range record.NS.Data {
-				glueAddress, glueRes := h.FetchRecord(ns.Host)
-				if glueRes == dns.RcodeSuccess {
-					context.Additional = append(context.Additional, h.A(ns.Host, glueAddress, glueAddress.A.Data)...)
-				}
-			}
-			context.Auth = false
-			res = dns.RcodeNotAuth
-		} else {
-			switch qtype {
-			case dns.TypeA:
-				if len(record.A.Data) == 0 {
-					if record.ANAME != nil {
-						// TODO: handle aname chain
-						anameAnswer, anameRes := h.FetchRecord(record.ANAME.Location)
-						if anameRes == dns.RcodeSuccess {
-							ips := h.Filter(context, &anameAnswer.A)
-							context.Answer = append(context.Answer, h.A(qname, anameAnswer, ips)...)
-						} else if anameRes == dns.RcodeNotAuth {
-							upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeA)
-							if upstreamRes == dns.RcodeSuccess {
-								var anameRecord []dns.RR
-								for _, r := range upstreamAnswers {
-									if r.Header().Name == record.ANAME.Location && r.Header().Rrtype == dns.TypeA {
-										a := r.(*dns.A)
-										anameRecord = append(anameRecord, &dns.A{A: a.A, Hdr: dns.RR_Header{Rrtype: dns.TypeA, Name: qname, Ttl: a.Hdr.Ttl, Class: dns.ClassINET, Rdlength: 0}})
-									}
-								}
-								context.Answer = append(context.Answer, anameRecord...)
-							}
-							res = upstreamRes
-						} else {
-							res = anameRes
-						}
-					}
-				} else {
-					ips := h.Filter(context, &record.A)
-					context.Answer = append(context.Answer, h.A(qname, record, ips)...)
-				}
-			case dns.TypeAAAA:
-				if len(record.AAAA.Data) == 0 {
-					if record.ANAME != nil {
-						anameAnswer, anameRes := h.FetchRecord(record.ANAME.Location)
-						if anameRes == dns.RcodeSuccess {
-							ips := h.Filter(context, &anameAnswer.AAAA)
-							context.Answer = append(context.Answer, h.AAAA(qname, anameAnswer, ips)...)
-						} else if anameRes == dns.RcodeNotAuth {
-							upstreamAnswers, upstreamRes := h.upstream.Query(record.ANAME.Location, dns.TypeAAAA)
-							if upstreamRes == dns.RcodeSuccess {
-								var anameRecord []dns.RR
-								for _, r := range upstreamAnswers {
-									if r.Header().Name == record.ANAME.Location && r.Header().Rrtype == dns.TypeAAAA {
-										a := r.(*dns.AAAA)
-										anameRecord = append(anameRecord, &dns.AAAA{AAAA: a.AAAA, Hdr: dns.RR_Header{Rrtype: dns.TypeAAAA, Name: qname, Ttl: a.Hdr.Ttl, Class: dns.ClassINET, Rdlength: 0}})
-									}
-								}
-								context.Answer = append(context.Answer, anameRecord...)
-							}
-							res = upstreamRes
-						} else {
-							res = anameRes
-						}
-					}
-				} else {
-					ips := h.Filter(context, &record.AAAA)
-					context.Answer = append(context.Answer, h.AAAA(qname, record, ips)...)
-				}
-			case dns.TypeCNAME:
-				context.Answer = append(context.Answer, h.CNAME(qname, record)...)
-			case dns.TypeTXT:
-				context.Answer = append(context.Answer, h.TXT(qname, record)...)
-			case dns.TypeNS:
-				context.Answer = append(context.Answer, h.NS(qname, record)...)
-			case dns.TypeMX:
-				context.Answer = append(context.Answer, h.MX(qname, record)...)
-			case dns.TypeSRV:
-				context.Answer = append(context.Answer, h.SRV(qname, record)...)
-			case dns.TypeCAA:
-				caaRecord := h.FindCAA(record)
-				if caaRecord != nil {
-					context.Answer = append(context.Answer, h.CAA(qname, caaRecord)...)
-				}
-			case dns.TypePTR:
-				context.Answer = append(context.Answer, h.PTR(qname, record)...)
-			case dns.TypeTLSA:
-				context.Answer = append(context.Answer, h.TLSA(qname, record)...)
-			case dns.TypeSOA:
-				context.Answer = append(context.Answer, record.Zone.Config.SOA.Data)
-			case dns.TypeDNSKEY:
-				if record.Zone.Config.DnsSec {
-					context.Answer = []dns.RR{record.Zone.ZSK.DnsKey, record.Zone.KSK.DnsKey}
-				}
-			default:
-				context.Answer = []dns.RR{}
-				context.Authority = []dns.RR{}
-				res = dns.RcodeNotImplemented
-			}
-			if len(context.Answer) == 0 {
-				if originalRecord.CNAME != nil {
-					context.Answer = append(context.Answer, h.CNAME(qname, record)...)
-				} else {
-					context.Authority = append(context.Authority, originalRecord.Zone.Config.SOA.Data)
-				}
-			}
+	zone := h.LoadZone(zoneName)
+	context.LogData["domain_uuid"] = zone.Config.DomainId
+
+	loopCount := 0
+	currentQName := context.Name()
+	currentRecord := &Record{}
+	res := dns.RcodeSuccess
+loop:
+	for {
+		if loopCount > 10 {
+			logger.Default.Errorf("CNAME loop in request %s->%s", context.Name(), context.Type())
+			context.Answer = []dns.RR{}
+			res = dns.RcodeServerFailure
+			break loop
 		}
-	} else if localRes == dns.RcodeNameError {
-		context.Answer = []dns.RR{}
-		context.Authority = append(context.Authority, originalRecord.Zone.Config.SOA.Data)
-	} else if localRes == dns.RcodeNotAuth {
-		if originalRecord != nil && originalRecord.CNAME != nil {
-			if len(context.Answer) == 0 {
-				context.Answer = append(context.Answer, h.CNAME(qname, originalRecord)...)
-			}
+		loopCount++
+
+		if h.FindZone(currentQName) != zoneName {
+			logger.Default.Debugf("[%d] out of zone - qname : %s, zone : %s", context.Req.Id, currentQName, zoneName)
 			res = dns.RcodeSuccess
+			break loop
+		}
+
+		location, match := zone.FindLocation(currentQName)
+		switch match {
+		case NoMatch:
+			logger.Default.Debugf("[%d] no location matched for %s in %s", context.Req.Id, currentQName, zoneName)
+			if currentQName == context.Name() {
+				logger.Default.Debugf("[%d] original qname : %s", context.Req.Id, currentQName)
+				context.Authority = []dns.RR{zone.Config.SOA.Data}
+				res = dns.RcodeNameError
+			} else {
+				logger.Default.Debugf("[%d] qname from cname : %s, %s", context.Req.Id, currentQName, context.Name())
+				res = dns.RcodeSuccess
+			}
+			break loop
+
+		case WildCardMatch:
+			fallthrough
+
+		case ExactMatch:
+			logger.Default.Debugf("[%d] loading location %s", context.Req.Id, location)
+			currentRecord = h.LoadLocation(location, zone)
+			if len(currentRecord.NS.Data) > 0 && currentQName != zone.Name {
+				logger.Default.Debugf("[%d] delegation", context.Req.Id)
+				context.Auth = false
+				context.Authority = append(context.Authority, h.NS(currentQName, currentRecord)...)
+				for _, ns := range currentRecord.NS.Data {
+					glueRecord := h.LoadLocation(strings.TrimSuffix(ns.Host, "."+zone.Name), zone)
+					context.Additional = append(context.Additional, h.A(ns.Host, glueRecord, glueRecord.A.Data)...)
+					context.Additional = append(context.Additional, h.AAAA(ns.Host, glueRecord, glueRecord.AAAA.Data)...)
+				}
+				res = dns.RcodeNotAuth
+				break loop
+			}
+			if currentRecord.CNAME != nil && context.QType() != dns.TypeCNAME {
+				logger.Default.Debugf("[%d] cname chain %s -> %s", context.Req.Id, currentQName, currentRecord.CNAME.Host)
+				if !zone.Config.CnameFlattening {
+					context.Answer = append(context.Answer, h.CNAME(currentQName, currentRecord)...)
+				} else if h.FindZone(currentRecord.CNAME.Host) != zoneName {
+					context.Answer = append(context.Answer, h.CNAME(currentQName, currentRecord)...)
+					break loop
+				}
+				currentQName = dns.Fqdn(currentRecord.CNAME.Host)
+				continue
+			} else {
+				logger.Default.Debugf("[%d] final location : %s", context.Req.Id, currentQName)
+				if zone.Config.CnameFlattening {
+					currentQName = context.Name()
+				}
+				switch context.QType() {
+				case dns.TypeA:
+					var ips []IP_RR
+					if len(currentRecord.A.Data) == 0 && currentRecord.ANAME != nil {
+						ips, res = h.FindANAME(context, currentRecord.ANAME.Location, dns.TypeA)
+					} else {
+						ips = h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.A)
+					}
+					context.Answer = append(context.Answer, h.A(currentQName, currentRecord, ips)...)
+				case dns.TypeAAAA:
+					var ips []IP_RR
+					if len(currentRecord.AAAA.Data) == 0 && currentRecord.ANAME != nil {
+						ips, res = h.FindANAME(context, currentRecord.ANAME.Location, dns.TypeAAAA)
+					} else {
+						ips = h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.AAAA)
+					}
+					context.Answer = append(context.Answer, h.AAAA(currentQName, currentRecord, ips)...)
+				case dns.TypeCNAME:
+					context.Answer = append(context.Answer, h.CNAME(currentQName, currentRecord)...)
+				case dns.TypeTXT:
+					context.Answer = append(context.Answer, h.TXT(currentQName, currentRecord)...)
+				case dns.TypeNS:
+					context.Answer = append(context.Answer, h.NS(currentQName, currentRecord)...)
+				case dns.TypeMX:
+					context.Answer = append(context.Answer, h.MX(currentQName, currentRecord)...)
+				case dns.TypeSRV:
+					context.Answer = append(context.Answer, h.SRV(currentQName, currentRecord)...)
+				case dns.TypeCAA:
+					caaRecord := h.FindCAA(currentRecord)
+					if caaRecord != nil {
+						context.Answer = append(context.Answer, h.CAA(currentQName, caaRecord)...)
+					}
+				case dns.TypePTR:
+					context.Answer = append(context.Answer, h.PTR(currentQName, currentRecord)...)
+				case dns.TypeTLSA:
+					context.Answer = append(context.Answer, h.TLSA(currentQName, currentRecord)...)
+				case dns.TypeSOA:
+					context.Answer = append(context.Answer, zone.Config.SOA.Data)
+				case dns.TypeDNSKEY:
+					if zone.Config.DnsSec {
+						context.Answer = []dns.RR{zone.ZSK.DnsKey, zone.KSK.DnsKey}
+					}
+				default:
+					context.Answer = []dns.RR{}
+					res = dns.RcodeNotImplemented
+				}
+				if len(context.Answer) == 0 {
+					context.Authority = []dns.RR{zone.Config.SOA.Data}
+				}
+
+				break loop
+			}
 		}
 	}
 
-	if context.Auth && context.Do() && originalRecord != nil && originalRecord.Zone.Config.DnsSec {
+	if context.Auth && zone.Config.DnsSec {
 		switch res {
 		case dns.RcodeSuccess:
 			if len(context.Answer) == 0 {
-				context.Authority = append(context.Authority, NSec(qname, originalRecord.Zone))
+				context.Authority = append(context.Authority, NSec(context.Name(), zone))
 			}
 		case dns.RcodeNameError:
-			context.Authority = append(context.Authority, NSec(qname, originalRecord.Zone))
+			context.Authority = append(context.Authority, NSec(context.Name(), zone))
 			res = dns.RcodeSuccess
 		}
-		context.Answer = Sign(context.Answer, qname, originalRecord)
-		context.Authority = Sign(context.Authority, qname, originalRecord)
+		context.Answer = Sign(context.Answer, context.Name(), zone)
+		context.Authority = Sign(context.Authority, context.Name(), zone)
+		context.Additional = Sign(context.Additional, context.Name(), zone)
 	}
 
-	h.LogRequest(context, res)
-	context.Response(res)
+	h.Response(context, res)
+	logger.Default.Debugf("[%d] end handle request - name : %s, type : %s", context.Req.Id, context.Name(), context.Type())
 }
 
-func (h *DnsRequestHandler) Filter(state *RequestContext, rrset *IP_RRSet) []IP_RR {
-	ips := h.healthcheck.FilterHealthcheck(state.Name(), rrset)
+func (h *DnsRequestHandler) Filter(name string, sourceIp net.IP, rrset *IP_RRSet) []IP_RR {
+	ips := h.healthcheck.FilterHealthcheck(name, rrset)
 	switch rrset.FilterConfig.GeoFilter {
 	case "asn":
-		ips = h.geoip.GetSameASN(state.SourceIp(), ips)
+		ips = h.geoip.GetSameASN(sourceIp, ips)
 	case "country":
-		ips = h.geoip.GetSameCountry(state.SourceIp(), ips)
+		ips = h.geoip.GetSameCountry(sourceIp, ips)
 	case "asn+country":
-		ips = h.geoip.GetSameASN(state.SourceIp(), ips)
-		ips = h.geoip.GetSameCountry(state.SourceIp(), ips)
+		ips = h.geoip.GetSameASN(sourceIp, ips)
+		ips = h.geoip.GetSameCountry(sourceIp, ips)
 	case "location":
-		ips = h.geoip.GetMinimumDistance(state.SourceIp(), ips)
+		ips = h.geoip.GetMinimumDistance(sourceIp, ips)
 	default:
 	}
 	if len(ips) <= 1 {
@@ -399,20 +374,6 @@ func (h *DnsRequestHandler) LoadZones() {
 	h.Zones = newZones
 }
 
-func (h *DnsRequestHandler) FetchRecord(qname string) (*Record, int) {
-	cachedRecord, found := h.RecordCache.Get(qname)
-	if found {
-		logger.Default.Debug("cached")
-		return cachedRecord.(*Record), dns.RcodeSuccess
-	} else {
-		record, res := h.GetRecord(qname)
-		if res == dns.RcodeSuccess {
-			h.RecordCache.Set(qname, record, time.Duration(h.Config.CacheTimeout)*time.Second)
-		}
-		return record, res
-	}
-}
-
 func (h *DnsRequestHandler) A(name string, record *Record, ips []IP_RR) (answers []dns.RR) {
 	for _, ip := range ips {
 		if ip.Ip == nil {
@@ -475,7 +436,7 @@ func (h *DnsRequestHandler) NS(name string, record *Record) (answers []dns.RR) {
 		r := new(dns.NS)
 		r.Hdr = dns.RR_Header{Name: name, Rrtype: dns.TypeNS,
 			Class: dns.ClassINET, Ttl: h.getTtl(record.NS.Ttl)}
-		r.Ns = ns.Host
+		r.Ns = dns.Fqdn(ns.Host)
 		answers = append(answers, r)
 	}
 	return
@@ -489,7 +450,7 @@ func (h *DnsRequestHandler) MX(name string, record *Record) (answers []dns.RR) {
 		r := new(dns.MX)
 		r.Hdr = dns.RR_Header{Name: name, Rrtype: dns.TypeMX,
 			Class: dns.ClassINET, Ttl: h.getTtl(record.MX.Ttl)}
-		r.Mx = mx.Host
+		r.Mx = dns.Fqdn(mx.Host)
 		r.Preference = mx.Preference
 		answers = append(answers, r)
 	}
@@ -504,7 +465,7 @@ func (h *DnsRequestHandler) SRV(name string, record *Record) (answers []dns.RR) 
 		r := new(dns.SRV)
 		r.Hdr = dns.RR_Header{Name: name, Rrtype: dns.TypeSRV,
 			Class: dns.ClassINET, Ttl: h.getTtl(record.SRV.Ttl)}
-		r.Target = srv.Target
+		r.Target = dns.Fqdn(srv.Target)
 		r.Weight = srv.Weight
 		r.Port = srv.Port
 		r.Priority = srv.Priority
@@ -586,42 +547,12 @@ func split255(s string) []string {
 	return sx
 }
 
-func (h *DnsRequestHandler) Matches(qname string) string {
+func (h *DnsRequestHandler) FindZone(qname string) string {
 	rname := reverseZone(qname)
 	if _, zname, ok := h.Zones.Root().LongestPrefix([]byte(rname)); ok {
 		return zname.(string)
 	}
 	return ""
-}
-
-func (h *DnsRequestHandler) GetRecord(qname string) (record *Record, rcode int) {
-	logger.Default.Debug("GetRecord")
-
-	zone := h.Matches(qname)
-	logger.Default.Debugf("zone : %s", zone)
-	if zone == "" {
-		logger.Default.Debugf("no matching zone found for %s", qname)
-		return nil, dns.RcodeNotAuth
-	}
-
-	z := h.LoadZone(zone)
-	if z == nil {
-		logger.Default.Errorf("empty zone : %s", zone)
-		return nil, dns.RcodeServerFailure
-	}
-
-	location := z.findLocation(qname)
-	if len(location) == 0 { // empty, no results
-		return &Record{Name: qname, Zone: z}, dns.RcodeNameError
-	}
-	logger.Default.Debugf("location : %s", location)
-
-	record = h.LoadLocation(location, z)
-	if record == nil {
-		return nil, dns.RcodeServerFailure
-	}
-
-	return record, dns.RcodeSuccess
 }
 
 func (h *DnsRequestHandler) loadKey(pub string, priv string) *ZoneKey {
@@ -707,6 +638,12 @@ func (h *DnsRequestHandler) LoadZoneKeys(z *Zone) {
 }
 
 func (h *DnsRequestHandler) LoadLocation(location string, z *Zone) *Record {
+	key := location + "." + z.Name
+	cachedRecord, found := h.RecordCache.Get(key)
+	if found {
+		logger.Default.Debug("cached")
+		return cachedRecord.(*Record)
+	}
 	var label, name string
 	if location == z.Name {
 		name = z.Name
@@ -731,15 +668,14 @@ func (h *DnsRequestHandler) LoadLocation(location string, z *Zone) *Record {
 	r.Name = name
 
 	val, _ := h.Redis.HGet("redins:zones:"+z.Name, label)
-	if val == "" {
-		return r
-	}
-	err := jsoniter.Unmarshal([]byte(val), r)
-	if err != nil {
-		logger.Default.Errorf("cannot parse json : zone -> %s, location -> %s, \"%s\" -> %s", z.Name, location, val, err)
-		return nil
+	if val != "" {
+		err := jsoniter.Unmarshal([]byte(val), r)
+		if err != nil {
+			logger.Default.Errorf("cannot parse json : zone -> %s, location -> %s, \"%s\" -> %s", z.Name, location, val, err)
+		}
 	}
 
+	h.RecordCache.Set(key, r, time.Duration(h.Config.CacheTimeout)*time.Second)
 	return r
 }
 
@@ -795,15 +731,84 @@ func ChooseIp(ips []IP_RR, weighted bool) int {
 func (h *DnsRequestHandler) FindCAA(record *Record) *Record {
 	zone := record.Zone
 	currentRecord := record
-	for currentRecord != nil && strings.HasSuffix(currentRecord.Name, zone.Name) {
+	currentLocation := strings.TrimSuffix(currentRecord.Name, "."+zone.Name)
+	for {
+		logger.Default.Debug("location : ", currentLocation)
 		if len(currentRecord.CAA.Data) != 0 {
 			return currentRecord
 		}
-		splits := strings.SplitAfterN(currentRecord.Name, ".", 2)
+		splits := strings.SplitAfterN(currentLocation, ".", 2)
 		if len(splits) != 2 {
-			return nil
+			break
 		}
-		currentRecord, _ = h.FetchRecord(splits[1])
+		currentLocation = splits[1]
+		currentRecord = h.LoadLocation(currentLocation, zone)
+	}
+	currentRecord = h.LoadLocation(zone.Name, zone)
+	if len(currentRecord.CAA.Data) != 0 {
+		return currentRecord
 	}
 	return nil
+}
+
+func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qtype uint16) ([]IP_RR, int) {
+	logger.Default.Debug("finding aname")
+	currentQName := aname
+	currentRecord := &Record{}
+	loopCount := 0
+	for {
+		if loopCount > 10 {
+			logger.Default.Errorf("ANAME loop in request %s->%s", context.Name(), context.Type())
+			return []IP_RR{}, dns.RcodeServerFailure
+		}
+		loopCount++
+
+		zoneName := h.FindZone(currentQName)
+		logger.Default.Debug("zone : ", zoneName, " qname : ", currentQName, " record : ", currentRecord.Name)
+		if zoneName == "" {
+			logger.Default.Debug("non-authoritative zone, using upstream")
+			upstreamAnswers, upstreamRes := h.upstream.Query(currentQName, qtype)
+			var ips []IP_RR
+			if upstreamRes == dns.RcodeSuccess {
+				for _, r := range upstreamAnswers {
+					if a, ok := r.(*dns.A); ok {
+						ips = append(ips, IP_RR{Ip: a.A})
+					} else if aaaa, ok := r.(*dns.AAAA); ok {
+						ips = append(ips, IP_RR{Ip: aaaa.AAAA})
+					}
+				}
+			}
+			return ips, upstreamRes
+		}
+
+		zone := h.LoadZone(zoneName)
+		location, _ := zone.FindLocation(currentQName)
+		if location == "" {
+			logger.Default.Debug("location not found")
+			return []IP_RR{}, dns.RcodeNameError
+		}
+
+		currentRecord = h.LoadLocation(location, zone)
+		if currentRecord.CNAME != nil {
+			logger.Default.Debug("cname")
+			currentQName = currentRecord.CNAME.Host
+			continue
+		}
+
+		if qtype == dns.TypeA && len(currentRecord.A.Data) > 0 {
+			logger.Default.Debug("found a")
+			return h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.A), dns.RcodeSuccess
+		} else if qtype == dns.TypeAAAA && len(currentRecord.AAAA.Data) > 0 {
+			logger.Default.Debug("found aaaa")
+			return h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.AAAA), dns.RcodeSuccess
+		}
+
+		if currentRecord.ANAME != nil {
+			logger.Default.Debug("aname")
+			currentQName = currentRecord.ANAME.Location
+			continue
+		}
+
+		return []IP_RR{}, dns.RcodeSuccess
+	}
 }

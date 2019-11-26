@@ -66,7 +66,13 @@ func NewZone(name string, locations []string, config string) *Zone {
 	return z
 }
 
-func (z *Zone) findLocation(query string) string {
+const (
+	ExactMatch = iota
+	WildCardMatch
+	NoMatch
+)
+
+func (z *Zone) FindLocation(query string) (string, int) {
 	var (
 		ok                bool
 		closestEncloser   string
@@ -75,13 +81,13 @@ func (z *Zone) findLocation(query string) string {
 
 	// request for zone records
 	if query == z.Name {
-		return query
+		return query, ExactMatch
 	}
 
 	query = strings.TrimSuffix(query, "."+z.Name)
 
 	if _, ok = z.Locations[query]; ok {
-		return query
+		return query, ExactMatch
 	}
 
 	closestEncloser, sourceOfSynthesis, ok = splitQuery(query)
@@ -90,15 +96,15 @@ func (z *Zone) findLocation(query string) string {
 		ssExists := z.keyExists(sourceOfSynthesis)
 		if ceExists {
 			if ssExists {
-				return sourceOfSynthesis
+				return sourceOfSynthesis, WildCardMatch
 			} else {
-				return ""
+				return "", NoMatch
 			}
 		} else {
 			closestEncloser, sourceOfSynthesis, ok = splitQuery(closestEncloser)
 		}
 	}
-	return ""
+	return "", NoMatch
 }
 
 func (z *Zone) keyExists(key string) bool {
@@ -134,4 +140,3 @@ func splitQuery(query string) (string, string, bool) {
 	}
 	return closestEncloser, sourceOfSynthesis, true
 }
-

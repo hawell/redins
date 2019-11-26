@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-var dnssecZone = string("dnssec_test.com.")
+var dnssecZone = "dnssec_test.com."
 
 var dnssecConfig = `{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.dnssec_test.com.","ns":"ns1.dnssec_test.com.","refresh":44,"retry":55,"expire":66},"dnssec": true}`
 var dnssecEntries = [][]string{
@@ -62,8 +62,7 @@ var dnssecEntries = [][]string{
 	},
 }
 
-var zskPriv = string(
-	`Private-key-format: v1.3
+var zskPriv = `Private-key-format: v1.3
 Algorithm: 5 (RSASHA1)
 Modulus: oqwXm/EF8q6p5Rrj66Bbft+0Vk7Kj6TuvZp4nNl0htiT/8/92kIcri5gbxnV2v+p6jXYQI1Vx/vqP5cB0kPzjUQuJFVpm14fxOp89D6N0fPXR7xJ+SHs5nigHBIJdaP5
 PublicExponent: AQAB
@@ -76,17 +75,16 @@ Coefficient: GhzOVUQcUJkvbYc9/+9MZngzDCeoetXDR6IILqG0/Rmt7FHWwSD7nOSoUUE5GslF
 Created: 20180717134704
 Publish: 20180717134704
 Activate: 20180717134704
-`)
+`
 
-var zskPub = string("dnssec_test.com. IN DNSKEY 256 3 5 AwEAAaKsF5vxBfKuqeUa4+ugW37ftFZOyo+k7r2aeJzZdIbYk//P/dpC HK4uYG8Z1dr/qeo12ECNVcf76j+XAdJD841ELiRVaZteH8TqfPQ+jdHz 10e8Sfkh7OZ4oBwSCXWj+Q==")
+var zskPub = "dnssec_test.com. IN DNSKEY 256 3 5 AwEAAaKsF5vxBfKuqeUa4+ugW37ftFZOyo+k7r2aeJzZdIbYk//P/dpC HK4uYG8Z1dr/qeo12ECNVcf76j+XAdJD841ELiRVaZteH8TqfPQ+jdHz 10e8Sfkh7OZ4oBwSCXWj+Q=="
 
 var dnskeyQuery = test.Case{
 	Do:    true,
 	Qname: "dnssec_test.com", Qtype: dns.TypeDNSKEY,
 }
 
-var kskPriv = string(
-	`Private-key-format: v1.3
+var kskPriv = `Private-key-format: v1.3
 Algorithm: 5 (RSASHA1)
 Modulus: 5WuOIP3GHID5Qmed6L+2ehBCkusTAXNv9uUfpzzTJHsA+bBesZSFsRNzMAV2drM7fApcL5IgNqrhb5twxu1/+cZj2Ld3PALbkENzn/erTl4A4uQdSWdkj8KnaLiJQPaT
 PublicExponent: AQAB
@@ -99,9 +97,9 @@ Coefficient: QCGY0yr+kkmOZfUoL9YCCgau/xjyEPRZgiGTfIy0PtGGMDKfUswJ+1KWI9Jue3E5
 Created: 20190518113600
 Publish: 20190518113600
 Activate: 20190518113600
-`)
+`
 
-var kskPub = string("dnssec_test.com. IN DNSKEY 257 3 5 AwEAAeVrjiD9xhyA+UJnnei/tnoQQpLrEwFzb/blH6c80yR7APmwXrGU hbETczAFdnazO3wKXC+SIDaq4W+bcMbtf/nGY9i3dzwC25BDc5/3q05e AOLkHUlnZI/Cp2i4iUD2kw==")
+var kskPub = "dnssec_test.com. IN DNSKEY 257 3 5 AwEAAeVrjiD9xhyA+UJnnei/tnoQQpLrEwFzb/blH6c80yR7APmwXrGU hbETczAFdnazO3wKXC+SIDaq4W+bcMbtf/nGY9i3dzwC25BDc5/3q05e AOLkHUlnZI/Cp2i4iUD2kw=="
 
 var dnssecTestCases = []test.Case{
 	{
@@ -305,7 +303,9 @@ func TestDNSSEC(t *testing.T) {
 
 	h := NewHandler(&dnssecTestConfig)
 
-	h.Redis.Del(dnssecZone)
+	if err := h.Redis.Del(dnssecZone); err != nil {
+		fmt.Println(err)
+	}
 	for _, cmd := range dnssecEntries {
 		err := h.Redis.HSet("redins:zones:"+dnssecZone, cmd[0], cmd[1])
 		if err != nil {
@@ -313,12 +313,24 @@ func TestDNSSEC(t *testing.T) {
 			t.Fail()
 		}
 	}
-	h.Redis.Set("redins:zones:"+dnssecZone+":config", dnssecConfig)
-	h.Redis.Set("redins:zones:"+dnssecZone+":zsk:pub", zskPub)
-	h.Redis.Set("redins:zones:"+dnssecZone+":zsk:priv", zskPriv)
-	h.Redis.Set("redins:zones:"+dnssecZone+":ksk:pub", kskPub)
-	h.Redis.Set("redins:zones:"+dnssecZone+":ksk:priv", kskPriv)
-	h.Redis.SAdd("redins:zones", dnssecZone)
+	if err := h.Redis.Set("redins:zones:"+dnssecZone+":config", dnssecConfig); err != nil {
+		fmt.Println(err)
+	}
+	if err := h.Redis.Set("redins:zones:"+dnssecZone+":zsk:pub", zskPub); err != nil {
+		fmt.Println(err)
+	}
+	if err := h.Redis.Set("redins:zones:"+dnssecZone+":zsk:priv", zskPriv); err != nil {
+		fmt.Println(err)
+	}
+	if err := h.Redis.Set("redins:zones:"+dnssecZone+":ksk:pub", kskPub); err != nil {
+		fmt.Println(err)
+	}
+	if err := h.Redis.Set("redins:zones:"+dnssecZone+":ksk:priv", kskPriv); err != nil {
+		fmt.Println(err)
+	}
+	if err := h.Redis.SAdd("redins:zones", dnssecZone); err != nil {
+		fmt.Println(err)
+	}
 	h.LoadZones()
 
 	var zsk dns.RR
@@ -326,7 +338,7 @@ func TestDNSSEC(t *testing.T) {
 	{
 		r := dnskeyQuery.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := NewRequestContext(w,r)
+		state := NewRequestContext(w, r)
 		h.HandleRequest(state)
 		resp := w.Msg
 		// fmt.Println(resp.Answer)
@@ -361,7 +373,7 @@ func TestDNSSEC(t *testing.T) {
 
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := NewRequestContext(w,r)
+		state := NewRequestContext(w, r)
 		h.HandleRequest(state)
 		resp := w.Msg
 		for _, rrs := range [][]dns.RR{tc0.Answer, tc0.Ns, resp.Answer, resp.Ns} {

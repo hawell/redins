@@ -16,6 +16,7 @@ import (
 type TestCase struct {
 	Name           string
 	Description    string
+	Enabled        bool
 	Config         HandlerConfig
 	Initialize     func(testCase *TestCase) (*DnsRequestHandler, error)
 	ApplyAndVerify func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T)
@@ -55,7 +56,7 @@ func defaultApplyAndVerify(testCase *TestCase, handler *DnsRequestHandler, t *te
 
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := NewRequestContext(w,r)
+		state := NewRequestContext(w, r)
 		handler.HandleRequest(state)
 
 		resp := w.Msg
@@ -110,6 +111,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "Basic Usage",
 		Description:    "Test Basic functionality",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -271,6 +273,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "WildCard",
 		Description:    "tests related to handling of different wildcard scenarios",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -360,6 +363,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "CNAME",
 		Description:    "normal cname functionality",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -413,6 +417,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "empty values",
 		Description:    "test handler behaviour with empty records",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -529,6 +534,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "long text",
 		Description:    "text field longer than 255 bytes",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -553,6 +559,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "cname flattening",
 		Description:    "eliminate intermediate cname records when cname flatenning is enabled",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -632,11 +639,15 @@ var testCases = []*TestCase{
 	{
 		Name:           "caa test",
 		Description:    "basic caa functionality",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
-		Zones:          []string{"example.caa."},
-		ZoneConfigs:    []string{`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.example.caa.","ns":"ns1.example.caa.","refresh":44,"retry":55,"expire":66}}`},
+		Zones:          []string{"example.caa.", "nocaa.caa."},
+		ZoneConfigs: []string{
+			`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.example.caa.","ns":"ns1.example.caa.","refresh":44,"retry":55,"expire":66}}`,
+			`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.nocaa.caa.","ns":"ns1.nocaa.caa.","refresh":44,"retry":55,"expire":66}}`,
+		},
 		Entries: [][][]string{
 			{
 				{"@",
@@ -661,6 +672,29 @@ var testCases = []*TestCase{
 					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
 				},
 				{"z",
+					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
+				},
+				{"h",
+					`{"caa":{"ttl":300, "records":[{"tag":"issue", "value":"godaddy2.com;", "flag":0}]}}`,
+				},
+				{"g.h",
+					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
+				},
+				{"j.g.h",
+					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
+				},
+			},
+			{
+				{"@",
+					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
+				},
+				{"www",
+					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
+				},
+				{"www2",
+					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
+				},
+				{"www3",
 					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
 				},
 			},
@@ -688,11 +722,54 @@ var testCases = []*TestCase{
 					test.CAA("x.y.z.example.caa.	300	IN	CAA	0 issue \"godaddy.com;\""),
 				},
 			},
+			{
+				Qname: "h.example.caa.", Qtype: dns.TypeCAA,
+				Answer: []dns.RR{
+					test.CAA("h.example.caa.	300	IN	CAA	0 issue \"godaddy2.com;\""),
+				},
+			},
+			{
+				Qname: "g.h.example.caa.", Qtype: dns.TypeCAA,
+				Answer: []dns.RR{
+					test.CAA("g.h.example.caa.	300	IN	CAA	0 issue \"godaddy2.com;\""),
+				},
+			},
+			{
+				Qname: "j.g.h.example.caa.", Qtype: dns.TypeCAA,
+				Answer: []dns.RR{
+					test.CAA("j.g.h.example.caa.	300	IN	CAA	0 issue \"godaddy2.com;\""),
+				},
+			},
+			{
+				Qname: "nocaa.caa.", Qtype: dns.TypeCAA,
+				Ns: []dns.RR{
+					test.SOA("nocaa.caa.	300	IN	SOA	ns1.nocaa.caa. hostmaster.nocaa.caa. 1570970363 44 55 66 100"),
+				},
+			},
+			{
+				Qname: "www.nocaa.caa.", Qtype: dns.TypeCAA,
+				Ns: []dns.RR{
+					test.SOA("nocaa.caa.	300	IN	SOA	ns1.nocaa.caa. hostmaster.nocaa.caa. 1570970363 44 55 66 100"),
+				},
+			},
+			{
+				Qname: "www2.nocaa.caa.", Qtype: dns.TypeCAA,
+				Ns: []dns.RR{
+					test.SOA("nocaa.caa.	300	IN	SOA	ns1.nocaa.caa. hostmaster.nocaa.caa. 1570970363 44 55 66 100"),
+				},
+			},
+			{
+				Qname: "www3.nocaa.caa.", Qtype: dns.TypeCAA,
+				Ns: []dns.RR{
+					test.SOA("nocaa.caa.	300	IN	SOA	ns1.nocaa.caa. hostmaster.nocaa.caa. 1570970363 44 55 66 100"),
+				},
+			},
 		},
 	},
 	{
 		Name:           "PTR test",
 		Description:    "basic ptr functionality",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -728,6 +805,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "ANAME test",
 		Description:    "test aname functionality",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -740,6 +818,15 @@ var testCases = []*TestCase{
 			{
 				{"@",
 					`{"aname":{"location":"aname.arvan.an."}}`,
+				},
+				{"nxlocal",
+					`{"aname":{"location":"nx.arvancloud.com."}}`,
+				},
+				{"empty",
+					`{"aname":{"location":"e.arvancloud.com."}}`,
+				},
+				{"e",
+					`"txt":{"ttl":300, "records":[{"text":"foo"}]},`,
 				},
 				{"upstream",
 					`{"aname":{"location":"dns.msftncsi.com."}}`,
@@ -780,6 +867,32 @@ var testCases = []*TestCase{
 				},
 			},
 			{
+				Qname: "nxlocal.arvancloud.com.", Qtype: dns.TypeA,
+				Ns: []dns.RR{
+					test.SOA("arvancloud.com.	300	IN	SOA	ns1.arvancloud.com. hostmaster.arvancloud.com. 1570970363 44 55 66 100"),
+				},
+				Rcode: dns.RcodeNameError,
+			},
+			{
+				Qname: "nxlocal.arvancloud.com.", Qtype: dns.TypeAAAA,
+				Ns: []dns.RR{
+					test.SOA("arvancloud.com.	300	IN	SOA	ns1.arvancloud.com. hostmaster.arvancloud.com. 1570970363 44 55 66 100"),
+				},
+				Rcode: dns.RcodeNameError,
+			},
+			{
+				Qname: "empty.arvancloud.com.", Qtype: dns.TypeA,
+				Ns: []dns.RR{
+					test.SOA("arvancloud.com.	300	IN	SOA	ns1.arvancloud.com. hostmaster.arvancloud.com. 1570970363 44 55 66 100"),
+				},
+			},
+			{
+				Qname: "empty.arvancloud.com.", Qtype: dns.TypeAAAA,
+				Ns: []dns.RR{
+					test.SOA("arvancloud.com.	300	IN	SOA	ns1.arvancloud.com. hostmaster.arvancloud.com. 1570970363 44 55 66 100"),
+				},
+			},
+			{
 				Qname: "nxupstream.arvancloud.com.", Qtype: dns.TypeA,
 				Ns: []dns.RR{
 					test.SOA("arvancloud.com.	300	IN	SOA	ns1.arvancloud.com. hostmaster.arvancloud.com. 1570970363 44 55 66 100"),
@@ -798,6 +911,7 @@ var testCases = []*TestCase{
 	{
 		Name:        "weighted aname test",
 		Description: "weight filter should be applied on aname results as well",
+		Enabled:     true,
 		Config:      defaultConfig,
 		Initialize:  defaultInitialize,
 		ApplyAndVerify: func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T) {
@@ -805,14 +919,16 @@ var testCases = []*TestCase{
 			for i := 0; i < 1000; i++ {
 				r := testCase.TestCases[0].Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := NewRequestContext(w,r)
+				state := NewRequestContext(w, r)
 				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if resp.Rcode != dns.RcodeSuccess {
+					fmt.Println("RcodeSuccess expected ", dns.RcodeToString[resp.Rcode], " received")
 					t.Fail()
 				}
 				if len(resp.Answer) == 0 {
+					fmt.Println("empty answer")
 					t.Fail()
 				}
 				a := resp.Answer[0].(*dns.A)
@@ -824,24 +940,28 @@ var testCases = []*TestCase{
 				case "3.3.3.3":
 					ipsCount[2]++
 				default:
+					fmt.Println("invalid ip : ", a.A.String())
 					t.Fail()
 				}
 			}
 			if !(ipsCount[0] < ipsCount[1] && ipsCount[1] < ipsCount[2]) {
+				fmt.Println("bad ip weight balance")
 				t.Fail()
 			}
 			ipsCount = []int{0, 0, 0}
 			for i := 0; i < 1000; i++ {
 				r := testCase.TestCases[1].Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := NewRequestContext(w,r)
+				state := NewRequestContext(w, r)
 				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if resp.Rcode != dns.RcodeSuccess {
+					fmt.Println("RcodeSuccess expected ", dns.RcodeToString[resp.Rcode], " received")
 					t.Fail()
 				}
 				if len(resp.Answer) == 0 {
+					fmt.Println("empty answer")
 					t.Fail()
 				}
 				aaaa := resp.Answer[0].(*dns.AAAA)
@@ -853,10 +973,12 @@ var testCases = []*TestCase{
 				case "2001:db8::3":
 					ipsCount[2]++
 				default:
+					fmt.Println("invalid ip : ", aaaa.AAAA.String())
 					t.Fail()
 				}
 			}
 			if !(ipsCount[0] < ipsCount[1] && ipsCount[1] < ipsCount[2]) {
+				fmt.Println("bad ip weight balance")
 				t.Fail()
 			}
 		},
@@ -892,6 +1014,7 @@ var testCases = []*TestCase{
 	{
 		Name:        "geofilter test",
 		Description: "test various geofilter scenarios",
+		Enabled:     true,
 		Config:      defaultConfig,
 		Initialize:  defaultInitialize,
 		ApplyAndVerify: func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T) {
@@ -930,13 +1053,14 @@ var testCases = []*TestCase{
 				r := tc.Msg()
 				r.Extra = append(r.Extra, opt)
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := NewRequestContext(w,r)
+				state := NewRequestContext(w, r)
 				handler.HandleRequest(state)
 
 				resp := w.Msg
 				resp.Extra = nil
 
-				if test.SortAndCheck(resp, tc) != nil {
+				if err := test.SortAndCheck(resp, tc); err != nil {
+					fmt.Println(err)
 					t.Fail()
 				}
 			}
@@ -1158,6 +1282,7 @@ var testCases = []*TestCase{
 	{
 		Name:        "filter multi ip",
 		Description: "ip filter functionality for multiple value results",
+		Enabled:     true,
 		Config:      defaultConfig,
 		Initialize:  defaultInitialize,
 		ApplyAndVerify: func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T) {
@@ -1165,12 +1290,13 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[0]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := NewRequestContext(w,r)
+				state := NewRequestContext(w, r)
 				handler.HandleRequest(state)
 
 				resp := w.Msg
 
-				if test.SortAndCheck(resp, tc) != nil {
+				if err := test.SortAndCheck(resp, tc); err != nil {
+					fmt.Println(err)
 					t.Fail()
 				}
 			}
@@ -1180,12 +1306,12 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[1]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := NewRequestContext(w,r)
+				state := NewRequestContext(w, r)
 				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if len(resp.Answer) != 5 {
-					fmt.Println("2")
+					fmt.Println("expected 5 results ", len(resp.Answer), " received")
 					t.Fail()
 				}
 
@@ -1206,7 +1332,7 @@ var testCases = []*TestCase{
 			}
 			// fmtPrintln(w1, w2, w4, w10, w20)
 			if w1 > w2 || w2 > w4 || w4 > w10 || w10 > w20 {
-				fmt.Println("3")
+				fmt.Println("bad ip weight balance")
 				t.Fail()
 			}
 
@@ -1215,12 +1341,12 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[2]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := NewRequestContext(w,r)
+				state := NewRequestContext(w, r)
 				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if len(resp.Answer) != 5 {
-					fmt.Println("4")
+					fmt.Println("expected 5 results ", len(resp.Answer), " received")
 					t.Fail()
 				}
 
@@ -1242,7 +1368,7 @@ var testCases = []*TestCase{
 			// fmt.Println(rr)
 			for i := range rr {
 				if rr[i] < 1500 || rr[i] > 2500 {
-					fmt.Println("5")
+					fmt.Println("bad ip weight balance")
 					t.Fail()
 				}
 			}
@@ -1315,6 +1441,7 @@ var testCases = []*TestCase{
 	{
 		Name:        "filter single ip",
 		Description: "ip filter functionality for single value results",
+		Enabled:     true,
 		Config:      defaultConfig,
 		Initialize:  defaultInitialize,
 		ApplyAndVerify: func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T) {
@@ -1322,12 +1449,13 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[0]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := NewRequestContext(w,r)
+				state := NewRequestContext(w, r)
 				handler.HandleRequest(state)
 
 				resp := w.Msg
 
-				if test.SortAndCheck(resp, tc) != nil {
+				if err := test.SortAndCheck(resp, tc); err != nil {
+					fmt.Println(err)
 					t.Fail()
 				}
 			}
@@ -1337,12 +1465,12 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[1]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := NewRequestContext(w,r)
+				state := NewRequestContext(w, r)
 				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if len(resp.Answer) != 1 {
-					fmt.Println("2")
+					fmt.Println("expected 1 answer ", len(resp.Answer), " received")
 					t.Fail()
 				}
 
@@ -1363,7 +1491,7 @@ var testCases = []*TestCase{
 			}
 			// fmt.Println(w1, w2, w4, w10, w20)
 			if w1 > w2 || w2 > w4 || w4 > w10 || w10 > w20 {
-				fmt.Println("3")
+				fmt.Println("bad ip weight balance")
 				t.Fail()
 			}
 
@@ -1372,12 +1500,12 @@ var testCases = []*TestCase{
 				tc := testCase.TestCases[2]
 				r := tc.Msg()
 				w := test.NewRecorder(&test.ResponseWriter{})
-				state := NewRequestContext(w,r)
+				state := NewRequestContext(w, r)
 				handler.HandleRequest(state)
 
 				resp := w.Msg
 				if len(resp.Answer) != 1 {
-					fmt.Println("4")
+					fmt.Println("expected 1 answer ", len(resp.Answer), " received")
 					t.Fail()
 				}
 
@@ -1399,7 +1527,7 @@ var testCases = []*TestCase{
 			// fmt.Println(rr)
 			for i := range rr {
 				if rr[i] < 1500 || rr[i] > 2500 {
-					fmt.Println("5")
+					fmt.Println("bad ip weight balance")
 					t.Fail()
 				}
 			}
@@ -1467,24 +1595,25 @@ var testCases = []*TestCase{
 	{
 		Name:        "cname upstream",
 		Description: "cname should not leave authoritative zone",
+		Enabled:     true,
 		Config:      defaultConfig,
 		Initialize:  defaultInitialize,
 		ApplyAndVerify: func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T) {
 			tc := testCase.TestCases[0]
 			r := tc.Msg()
 			w := test.NewRecorder(&test.ResponseWriter{})
-			state := NewRequestContext(w,r)
+			state := NewRequestContext(w, r)
 			handler.HandleRequest(state)
 
 			resp := w.Msg
 			// fmt.Println(resp)
 			if resp.Rcode != dns.RcodeSuccess {
-				fmt.Println("1")
+				fmt.Println("invalid rcode, expected : RcodeSuccess, received : ", dns.RcodeToString[resp.Rcode])
 				t.Fail()
 			}
 			cname := resp.Answer[0].(*dns.CNAME)
 			if cname.Target != "www.google.com." {
-				fmt.Println("2 ", cname)
+				fmt.Println("invalid cname target, expected : www.google.com. received : ", cname.Target)
 				t.Fail()
 			}
 		},
@@ -1506,6 +1635,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "cname outside domain",
 		Description:    "cname should not leave current domain",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -1538,6 +1668,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "cname loop",
 		Description:    "should properly handler cname loop",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -1545,6 +1676,9 @@ var testCases = []*TestCase{
 		ZoneConfigs:    []string{""},
 		Entries: [][][]string{
 			{
+				{"w",
+					`{"cname":{"ttl":300, "host":"w.loop.cnm."}}`,
+				},
 				{"w1",
 					`{"cname":{"ttl":300, "host":"w2.loop.cnm."}}`,
 				},
@@ -1555,7 +1689,15 @@ var testCases = []*TestCase{
 		},
 		TestCases: []test.Case{
 			{
+				Qname: "w.loop.cnm.", Qtype: dns.TypeA,
+				Rcode: dns.RcodeServerFailure,
+			},
+			{
 				Qname: "w1.loop.cnm.", Qtype: dns.TypeA,
+				Rcode: dns.RcodeServerFailure,
+			},
+			{
+				Qname: "w2.loop.cnm.", Qtype: dns.TypeA,
 				Rcode: dns.RcodeServerFailure,
 			},
 		},
@@ -1563,6 +1705,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "zone matching",
 		Description:    "zone should match with longest prefix",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -1628,15 +1771,20 @@ var testCases = []*TestCase{
 	{
 		Name:        "zone update",
 		Description: "test zone update with redis event notification",
+		Enabled:     true,
 		Config:      defaultConfig,
 		Initialize: func(testCase *TestCase) (handler *DnsRequestHandler, e error) {
 			rd := uperdis.NewRedis(&testCase.Config.Redis)
-			rd.SetConfig("notify-keyspace-events", "AK")
+			if err := rd.SetConfig("notify-keyspace-events", "AK"); err != nil {
+				fmt.Println(err)
+			}
 			time.Sleep(time.Second)
 
 			testCase.Config.CacheTimeout = 1
 			h := NewHandler(&testCase.Config)
-			h.Redis.Del("*")
+			if err := h.Redis.Del("*"); err != nil {
+				fmt.Println(err)
+			}
 			for _, cmd := range testCase.Entries[0] {
 				err := h.Redis.HSet("redins:zones:"+testCase.Zones[0], cmd[0], cmd[1])
 				if err != nil {
@@ -1648,31 +1796,35 @@ var testCases = []*TestCase{
 			return h, nil
 		},
 		ApplyAndVerify: func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T) {
-			handler.Redis.SAdd("redins:zones", testCase.Zones[0])
+			if err := handler.Redis.SAdd("redins:zones", testCase.Zones[0]); err != nil {
+				fmt.Println(err)
+			}
 			time.Sleep(time.Millisecond * 10)
 			tc := testCase.TestCases[0]
 			r := tc.Msg()
 			w := test.NewRecorder(&test.ResponseWriter{})
-			state := NewRequestContext(w,r)
+			state := NewRequestContext(w, r)
 			handler.HandleRequest(state)
 
 			resp := w.Msg
 			if resp.Rcode != dns.RcodeSuccess {
-				fmt.Println("1")
+				fmt.Println("invalid rcode, expected : RcodeSuccess, received : ", dns.RcodeToString[resp.Rcode])
 				t.Fail()
 			}
 
-			handler.Redis.SRem("redins:zones", testCase.Zones[0])
+			if err := handler.Redis.SRem("redins:zones", testCase.Zones[0]); err != nil {
+				fmt.Println(err)
+			}
 			time.Sleep(time.Millisecond * 1500)
 			tc = testCase.TestCases[0]
 			r = tc.Msg()
 			w = test.NewRecorder(&test.ResponseWriter{})
-			state = NewRequestContext(w,r)
+			state = NewRequestContext(w, r)
 			handler.HandleRequest(state)
 
 			resp = w.Msg
 			if resp.Rcode != dns.RcodeNotAuth {
-				fmt.Println("2 : ", resp.Rcode)
+				fmt.Println("invalid rcode, expected : RcodeNotAuth, received : ", dns.RcodeToString[resp.Rcode])
 				t.Fail()
 			}
 		},
@@ -1695,6 +1847,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "cname noauth",
 		Description:    "cname following should stop and return results when reaching notauth zone",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -1724,6 +1877,7 @@ var testCases = []*TestCase{
 	{
 		Name:           "delegation",
 		Description:    "test subdomain delegation",
+		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
@@ -1770,6 +1924,155 @@ var testCases = []*TestCase{
 			},
 		},
 	},
+	{
+		Name:           "label matching",
+		Description:    "test correct label matching",
+		Enabled:        true,
+		Config:         defaultConfig,
+		Initialize:     defaultInitialize,
+		ApplyAndVerify: defaultApplyAndVerify,
+		Zones:          []string{"zone1.com.", "zone2.com.", "zone3.com."},
+		ZoneConfigs:    []string{"", "", ""},
+		Entries: [][][]string{
+			{
+				{"@",
+					`{"a":{"ttl":300, "records":[{"ip":"1.1.1.1"}]}}`,
+				},
+				{"www",
+					`{"a":{"ttl":300, "records":[{"ip":"1.1.1.2"}]}}`,
+				},
+			},
+			{
+				{"@",
+					`{"a":{"ttl":300, "records":[{"ip":"2.2.2.1"}]}}`,
+				},
+				{"www",
+					`{"a":{"ttl":300, "records":[{"ip":"2.2.2.2"}]}}`,
+				},
+				{"zone1.com",
+					`{"a":{"ttl":300, "records":[{"ip":"2.2.2.3"}]}}`,
+				},
+				{"www.zone1",
+					`{"a":{"ttl":300, "records":[{"ip":"2.2.2.4"}]}}`,
+				},
+				{"www.zone1.com",
+					`{"a":{"ttl":300, "records":[{"ip":"2.2.2.5"}]}}`,
+				},
+			},
+			{
+				{"@",
+					`{"a":{"ttl":300, "records":[{"ip":"3.3.3.1"}]}}`,
+				},
+				{"www",
+					`{"a":{"ttl":300, "records":[{"ip":"3.3.3.2"}]}}`,
+				},
+				{"zone3.com",
+					`{"a":{"ttl":300, "records":[{"ip":"3.3.3.3"}]}}`,
+				},
+			},
+		},
+		TestCases: []test.Case{
+			{
+				Qname: "zone1.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("zone1.com. 300 IN A 1.1.1.1"),
+				},
+			},
+			{
+				Qname: "www.zone1.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("www.zone1.com. 300 IN A 1.1.1.2"),
+				},
+			},
+			{
+				Qname: "zone2.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("zone2.com. 300 IN A 2.2.2.1"),
+				},
+			},
+			{
+				Qname: "www.zone2.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("www.zone2.com. 300 IN A 2.2.2.2"),
+				},
+			},
+			{
+				Qname: "zone1.com.zone2.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("zone1.com.zone2.com. 300 IN A 2.2.2.3"),
+				},
+			},
+			{
+				Qname: "www.zone1.zone2.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("www.zone1.zone2.com. 300 IN A 2.2.2.4"),
+				},
+			},
+			{
+				Qname: "www.zone1.com.zone2.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("www.zone1.com.zone2.com. 300 IN A 2.2.2.5"),
+				},
+			},
+			{
+				Qname: "zone3.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("zone3.com. 300 IN A 3.3.3.1"),
+				},
+			},
+			{
+				Qname: "www.zone3.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("www.zone3.com. 300 IN A 3.3.3.2"),
+				},
+			},
+			{
+				Qname: "zone3.com.zone3.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("zone3.com.zone3.com. 300 IN A 3.3.3.3"),
+				},
+			},
+		},
+	},
+	{
+		Name:           "cname flattening leaving zone",
+		Description:    "test correct response when reaching a cname pointing outside current zone",
+		Enabled:        true,
+		Config:         defaultConfig,
+		Initialize:     defaultInitialize,
+		ApplyAndVerify: defaultApplyAndVerify,
+		Zones:          []string{"flat.com.", "noflat.com."},
+		ZoneConfigs: []string{
+			`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.flat.com.","ns":"ns1.flat.com.","refresh":44,"retry":55,"expire":66},"cname_flattening":true}}`,
+			`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.noflat.com.","ns":"ns1.noflat.com.","refresh":44,"retry":55,"expire":66},,"cname_flattening":false}}`,
+		},
+		Entries: [][][]string{
+			{
+				{"www",
+					`{"cname":{"ttl":300, "host":"anotherzone.com."}}`,
+				},
+			},
+			{
+				{"www",
+					`{"cname":{"ttl":300, "host":"anotherzone.com."}}`,
+				},
+			},
+		},
+		TestCases: []test.Case{
+			{
+				Qname: "www.flat.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("www.flat.com. 300 IN CNAME anotherzone.com."),
+				},
+			},
+			{
+				Qname: "www.noflat.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("www.noflat.com. 300 IN CNAME anotherzone.com."),
+				},
+			},
+		},
+	},
 }
 
 func center(s string, w int) string {
@@ -1778,6 +2081,9 @@ func center(s string, w int) string {
 
 func TestAll(t *testing.T) {
 	for _, testCase := range testCases {
+		if !testCase.Enabled {
+			continue
+		}
 		fmt.Println(">>> ", center(testCase.Name, 70), " <<<")
 		fmt.Println(testCase.Description)
 		fmt.Println(strings.Repeat("-", 80))

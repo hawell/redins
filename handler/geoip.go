@@ -191,12 +191,11 @@ func (g *GeoIp) GetGeoLocation(ip net.IP) (latitude float64, longitude float64, 
 		} `maxminddb:"country"`
 	}
 	logger.Default.Debugf("ip : %s", ip)
-	err = g.CountryDB.Lookup(ip, &record)
-	if err != nil {
+	if err := g.CountryDB.Lookup(ip, &record); err != nil {
 		logger.Default.Errorf("lookup failed : %s", err)
 		return 0, 0, "", err
 	}
-	g.CountryDB.Decode(record.Location.LongitudeOffset, &longitude)
+	_ = g.CountryDB.Decode(record.Location.LongitudeOffset, &longitude)
 	logger.Default.Debug("lat = ", record.Location.Latitude, " lang = ", longitude, " country = ", record.Country.ISOCode)
 	return record.Location.Latitude, longitude, record.Country.ISOCode, nil
 }

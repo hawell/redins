@@ -34,12 +34,12 @@ func TestSubnet(t *testing.T) {
 	w := test.NewRecorder(&test.ResponseWriter{})
 	state := NewRequestContext(w, r)
 
-	subnet := state.SourceSubnet()
+	subnet := state.SourceSubnet
 	if subnet != sa+"/32/0" {
 		log.Printf("subnet = %s should be %s\n", subnet, sa)
 		t.Fail()
 	}
-	address := state.SourceIp()
+	address := state.SourceIp
 	if address.String() != sa {
 		log.Printf("address = %s should be %s\n", address.String(), sa)
 		t.Fail()
