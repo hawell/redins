@@ -177,14 +177,8 @@ loop:
 		switch match {
 		case NoMatch:
 			logger.Default.Debugf("[%d] no location matched for %s in %s", context.Req.Id, currentQName, zoneName)
-			if currentQName == context.Name() {
-				logger.Default.Debugf("[%d] original qname : %s", context.Req.Id, currentQName)
-				context.Authority = []dns.RR{zone.Config.SOA.Data}
-				res = dns.RcodeNameError
-			} else {
-				logger.Default.Debugf("[%d] qname from cname : %s, %s", context.Req.Id, currentQName, context.Name())
-				res = dns.RcodeSuccess
-			}
+			context.Authority = []dns.RR{zone.Config.SOA.Data}
+			res = dns.RcodeNameError
 			break loop
 
 		case WildCardMatch:
@@ -220,6 +214,7 @@ loop:
 				if zone.Config.CnameFlattening {
 					currentQName = context.Name()
 				}
+				var answer []dns.RR
 				switch context.QType() {
 				case dns.TypeA:
 					var ips []IP_RR
@@ -230,7 +225,7 @@ loop:
 					} else {
 						ips = h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.A)
 					}
-					context.Answer = append(context.Answer, h.A(currentQName, currentRecord, ips)...)
+					answer = h.A(currentQName, currentRecord, ips)
 				case dns.TypeAAAA:
 					var ips []IP_RR
 					var ttl uint32
@@ -240,40 +235,40 @@ loop:
 					} else {
 						ips = h.Filter(currentRecord.Name, context.SourceIp, &currentRecord.AAAA)
 					}
-					context.Answer = append(context.Answer, h.AAAA(currentQName, currentRecord, ips)...)
+					answer = h.AAAA(currentQName, currentRecord, ips)
 				case dns.TypeCNAME:
-					context.Answer = append(context.Answer, h.CNAME(currentQName, currentRecord)...)
+					answer = h.CNAME(currentQName, currentRecord)
 				case dns.TypeTXT:
-					context.Answer = append(context.Answer, h.TXT(currentQName, currentRecord)...)
+					answer = h.TXT(currentQName, currentRecord)
 				case dns.TypeNS:
-					context.Answer = append(context.Answer, h.NS(currentQName, currentRecord)...)
+					answer = h.NS(currentQName, currentRecord)
 				case dns.TypeMX:
-					context.Answer = append(context.Answer, h.MX(currentQName, currentRecord)...)
+					answer = h.MX(currentQName, currentRecord)
 				case dns.TypeSRV:
-					context.Answer = append(context.Answer, h.SRV(currentQName, currentRecord)...)
+					answer = h.SRV(currentQName, currentRecord)
 				case dns.TypeCAA:
 					caaRecord := h.FindCAA(currentRecord)
 					if caaRecord != nil {
-						context.Answer = append(context.Answer, h.CAA(currentQName, caaRecord)...)
+						answer = h.CAA(currentQName, caaRecord)
 					}
 				case dns.TypePTR:
-					context.Answer = append(context.Answer, h.PTR(currentQName, currentRecord)...)
+					answer = h.PTR(currentQName, currentRecord)
 				case dns.TypeTLSA:
-					context.Answer = append(context.Answer, h.TLSA(currentQName, currentRecord)...)
+					answer = h.TLSA(currentQName, currentRecord)
 				case dns.TypeSOA:
-					context.Answer = append(context.Answer, zone.Config.SOA.Data)
+					answer = []dns.RR{zone.Config.SOA.Data}
 				case dns.TypeDNSKEY:
 					if zone.Config.DnsSec {
-						context.Answer = []dns.RR{zone.ZSK.DnsKey, zone.KSK.DnsKey}
+						answer = []dns.RR{zone.ZSK.DnsKey, zone.KSK.DnsKey}
 					}
 				default:
 					context.Answer = []dns.RR{}
 					res = dns.RcodeNotImplemented
 				}
-				if len(context.Answer) == 0 {
+				context.Answer = append(context.Answer, answer...)
+				if len(answer) == 0 {
 					context.Authority = []dns.RR{zone.Config.SOA.Data}
 				}
-
 				break loop
 			}
 		}

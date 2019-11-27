@@ -163,6 +163,9 @@ var testCases = []*TestCase{
 				{"t.u.v.w",
 					`{"a":{"ttl":300, "records":[{"ip":"9.9.9.9"}]}}`,
 				},
+				{"cnametonx",
+					`{"cname":{"ttl":300, "host":"notexists.example.com."}}`,
+				},
 			},
 		},
 		TestCases: []test.Case{
@@ -242,6 +245,17 @@ var testCases = []*TestCase{
 			{
 				Qname: "notexists.example.com.", Qtype: dns.TypeA,
 				Rcode: dns.RcodeNameError,
+				Ns: []dns.RR{
+					test.SOA("example.com. 300 IN SOA ns1.example.com. hostmaster.example.com. 1460498836 44 55 66 100"),
+				},
+			},
+			// NXDOMAIN through CNAME Test
+			{
+				Qname: "cnametonx.example.com.", Qtype: dns.TypeA,
+				Rcode: dns.RcodeNameError,
+				Answer: []dns.RR{
+					test.CNAME("cnametonx.example.com. 300 IN CNAME notexists.example.com."),
+				},
 				Ns: []dns.RR{
 					test.SOA("example.com. 300 IN SOA ns1.example.com. hostmaster.example.com. 1460498836 44 55 66 100"),
 				},
@@ -426,7 +440,7 @@ var testCases = []*TestCase{
 		Entries: [][][]string{
 			{
 				{"x",
-					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
+					`{}`,
 				},
 				{"y",
 					`{"cname":{"ttl":300, "host":"x.example.bbb."}}`,
@@ -490,8 +504,10 @@ var testCases = []*TestCase{
 			{
 				Qname: "y.example.bbb.", Qtype: dns.TypeA,
 				Answer: []dns.RR{
-					test.A("x.example.bbb.	300	IN	A	1.2.3.4"),
 					test.CNAME("y.example.bbb.	300	IN	CNAME	x.example.bbb."),
+				},
+				Ns: []dns.RR{
+					test.SOA("example.bbb. 300 IN SOA ns1.example.bbb. hostmaster.example.bbb. 1460498836 44 55 66 100"),
 				},
 			},
 			// empty AAAA test with cname
@@ -500,12 +516,18 @@ var testCases = []*TestCase{
 				Answer: []dns.RR{
 					test.CNAME("y.example.bbb.	300	IN	CNAME	x.example.bbb."),
 				},
+				Ns: []dns.RR{
+					test.SOA("example.bbb. 300 IN SOA ns1.example.bbb. hostmaster.example.bbb. 1460498836 44 55 66 100"),
+				},
 			},
 			// empty TXT test with cname
 			{
 				Qname: "y.example.bbb.", Qtype: dns.TypeTXT,
 				Answer: []dns.RR{
 					test.CNAME("y.example.bbb.	300	IN	CNAME	x.example.bbb."),
+				},
+				Ns: []dns.RR{
+					test.SOA("example.bbb. 300 IN SOA ns1.example.bbb. hostmaster.example.bbb. 1460498836 44 55 66 100"),
 				},
 			},
 			// empty NS test with cname
@@ -514,6 +536,9 @@ var testCases = []*TestCase{
 				Answer: []dns.RR{
 					test.CNAME("y.example.bbb.	300	IN	CNAME	x.example.bbb."),
 				},
+				Ns: []dns.RR{
+					test.SOA("example.bbb. 300 IN SOA ns1.example.bbb. hostmaster.example.bbb. 1460498836 44 55 66 100"),
+				},
 			},
 			// empty MX test with cname
 			{
@@ -521,12 +546,18 @@ var testCases = []*TestCase{
 				Answer: []dns.RR{
 					test.CNAME("y.example.bbb.	300	IN	CNAME	x.example.bbb."),
 				},
+				Ns: []dns.RR{
+					test.SOA("example.bbb. 300 IN SOA ns1.example.bbb. hostmaster.example.bbb. 1460498836 44 55 66 100"),
+				},
 			},
 			// empty SRV test with cname
 			{
 				Qname: "y.example.bbb.", Qtype: dns.TypeSRV,
 				Answer: []dns.RR{
 					test.CNAME("y.example.bbb.	300	IN	CNAME	x.example.bbb."),
+				},
+				Ns: []dns.RR{
+					test.SOA("example.bbb. 300 IN SOA ns1.example.bbb. hostmaster.example.bbb. 1460498836 44 55 66 100"),
 				},
 			},
 		},
@@ -1897,6 +1928,9 @@ var testCases = []*TestCase{
 				{"ns2.glue",
 					`{"a":{"ttl":300, "records":[{"ip":"5.6.7.8"}]}}`,
 				},
+				{"cname",
+					`{"cname":{"ttl":300, "host":"glue.delegation.zon."}}`,
+				},
 			},
 		},
 		TestCases: []test.Case{
@@ -1920,6 +1954,22 @@ var testCases = []*TestCase{
 				Ns: []dns.RR{
 					test.NS("noglue.delegation.zon. 300 IN NS ns1.delegated.zon."),
 					test.NS("noglue.delegation.zon. 300 IN NS ns2.delegated.zon."),
+				},
+			},
+			{
+				Qname: "cname.delegation.zon.",
+				Qtype: dns.TypeA,
+				Rcode: dns.RcodeNotAuth,
+				Answer: []dns.RR{
+					test.CNAME("cname.delegation.zon. 300 IN CNAME glue.delegation.zon."),
+				},
+				Ns: []dns.RR{
+					test.NS("glue.delegation.zon. 300 IN NS ns1.glue.delegation.zon."),
+					test.NS("glue.delegation.zon. 300 IN NS ns2.glue.delegation.zon."),
+				},
+				Extra: []dns.RR{
+					test.A("ns1.glue.delegation.zon. 300 IN A 1.2.3.4"),
+					test.A("ns2.glue.delegation.zon. 300 IN A 5.6.7.8"),
 				},
 			},
 		},
@@ -2074,11 +2124,11 @@ var testCases = []*TestCase{
 		},
 	},
 	{
-		Name:           "ANAME ttl",
-		Description:    "test ttl value for aname queries",
-		Enabled:        true,
-		Config:         defaultConfig,
-		Initialize:     func(testCase *TestCase) (handler *DnsRequestHandler, e error) {
+		Name:        "ANAME ttl",
+		Description: "test ttl value for aname queries",
+		Enabled:     true,
+		Config:      defaultConfig,
+		Initialize: func(testCase *TestCase) (handler *DnsRequestHandler, e error) {
 			testCase.Config.MaxTtl = 456
 			return defaultInitialize(testCase)
 		},
