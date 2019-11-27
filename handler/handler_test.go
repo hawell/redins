@@ -403,6 +403,17 @@ var testCases = []*TestCase{
 				{"z",
 					`{"cname":{"ttl":300, "host":"y.example.aaa."}}`,
 				},
+				{"w",
+					`{
+						"a":{"ttl":300, "records":[{"ip":"1.1.1.1"}]},
+                		"aaaa":{"ttl":300, "records":[{"ip":"::2"}]},
+                		"txt":{"ttl":300, "records":[{"text":"www"},{"text":"qqq"}]},
+                		"mx":{"ttl":300, "records":[{"host":"mx3.example.aaa.", "preference":10},{"host":"mx4.example.aaa.", "preference":10}]},
+                		"srv":{"ttl":300, "records":[{"target":"sip2.example.aaa.","port":555,"priority":10,"weight":100}]},
+						"ns":{"ttl":300, "records":[{"host":"ns1.example.aaa."},{"ttl":300, "host":"ns2.example.aaa."}]},
+						"cname":{"ttl":300, "host":"x.example.aaa."}
+					}`,
+				},
 			},
 		},
 		TestCases: []test.Case{
@@ -424,6 +435,96 @@ var testCases = []*TestCase{
 					test.A("x.example.aaa. 300 IN A 1.2.3.4"),
 					test.CNAME("y.example.aaa. 300 IN CNAME x.example.aaa."),
 					test.CNAME("z.example.aaa. 300 IN CNAME y.example.aaa."),
+				},
+			},
+			{
+				Qname: "z.example.aaa.", Qtype: dns.TypeAAAA,
+				Answer: []dns.RR{
+					test.AAAA("x.example.aaa. 300 IN AAAA ::1"),
+					test.CNAME("y.example.aaa. 300 IN CNAME x.example.aaa."),
+					test.CNAME("z.example.aaa. 300 IN CNAME y.example.aaa."),
+				},
+			},
+			{
+				Qname: "z.example.aaa.", Qtype: dns.TypeTXT,
+				Answer: []dns.RR{
+					test.TXT("x.example.aaa. 300 IN TXT bar"),
+					test.TXT("x.example.aaa. 300 IN TXT foo"),
+					test.CNAME("y.example.aaa. 300 IN CNAME x.example.aaa."),
+					test.CNAME("z.example.aaa. 300 IN CNAME y.example.aaa."),
+				},
+			},
+			{
+				Qname: "z.example.aaa.", Qtype: dns.TypeNS,
+				Answer: []dns.RR{
+					test.CNAME("y.example.aaa. 300 IN CNAME x.example.aaa."),
+					test.CNAME("z.example.aaa. 300 IN CNAME y.example.aaa."),
+				},
+				Ns: []dns.RR{
+					test.SOA("example.aaa. 300 IN SOA ns1.example.aaa. hostmaster.example.aaa. 1460498836 44 55 66 100"),
+				},
+			},
+			{
+				Qname: "z.example.aaa.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.MX("x.example.aaa. 300 IN MX 10 mx1.example.aaa."),
+					test.MX("x.example.aaa. 300 IN MX 10 mx2.example.aaa."),
+					test.CNAME("y.example.aaa. 300 IN CNAME x.example.aaa."),
+					test.CNAME("z.example.aaa. 300 IN CNAME y.example.aaa."),
+				},
+			},
+			{
+				Qname: "z.example.aaa.", Qtype: dns.TypeSRV,
+				Answer: []dns.RR{
+					test.SRV("x.example.aaa. 300 IN SRV 10 100 555 sip.example.aaa."),
+					test.CNAME("y.example.aaa. 300 IN CNAME x.example.aaa."),
+					test.CNAME("z.example.aaa. 300 IN CNAME y.example.aaa."),
+				},
+			},
+			{
+				Qname: "w.example.aaa.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("w.example.aaa. 300 IN CNAME x.example.aaa."),
+					test.A("x.example.aaa. 300 IN A 1.2.3.4"),
+				},
+			},
+			{
+				Qname: "w.example.aaa.", Qtype: dns.TypeAAAA,
+				Answer: []dns.RR{
+					test.CNAME("w.example.aaa. 300 IN CNAME x.example.aaa."),
+					test.AAAA("x.example.aaa. 300 IN AAAA ::1"),
+				},
+			},
+			{
+				Qname: "w.example.aaa.", Qtype: dns.TypeTXT,
+				Answer: []dns.RR{
+					test.CNAME("w.example.aaa. 300 IN CNAME x.example.aaa."),
+					test.TXT("x.example.aaa. 300 IN TXT bar"),
+					test.TXT("x.example.aaa. 300 IN TXT foo"),
+				},
+			},
+			{
+				Qname: "w.example.aaa.", Qtype: dns.TypeNS,
+				Answer: []dns.RR{
+					test.CNAME("w.example.aaa. 300 IN CNAME x.example.aaa."),
+				},
+				Ns: []dns.RR{
+					test.SOA("example.aaa. 300 IN SOA ns1.example.aaa. hostmaster.example.aaa. 1460498836 44 55 66 100"),
+				},
+			},
+			{
+				Qname: "w.example.aaa.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.CNAME("w.example.aaa. 300 IN CNAME x.example.aaa."),
+					test.MX("x.example.aaa. 300 IN MX 10 mx1.example.aaa."),
+					test.MX("x.example.aaa. 300 IN MX 10 mx2.example.aaa."),
+				},
+			},
+			{
+				Qname: "w.example.aaa.", Qtype: dns.TypeSRV,
+				Answer: []dns.RR{
+					test.CNAME("w.example.aaa. 300 IN CNAME x.example.aaa."),
+					test.SRV("x.example.aaa. 300 IN SRV 10 100 555 sip.example.aaa."),
 				},
 			},
 		},
@@ -1720,7 +1821,7 @@ var testCases = []*TestCase{
 	},
 	{
 		Name:           "cname loop",
-		Description:    "should properly handler cname loop",
+		Description:    "should properly handle cname loop",
 		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
