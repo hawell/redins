@@ -25,7 +25,7 @@ var dnssecEntries = [][]string{
             "txt":{"ttl":300, "records":[{"text":"foo"},{"text":"bar"}]},
             "mx":{"ttl":300, "records":[{"host":"mx1.dnssec_test.com.", "preference":10},{"host":"mx2.dnssec_test.com.", "preference":10}]},
             "srv":{"ttl":300, "records":[{"target":"sip.dnssec_test.com.","port":555,"priority":10,"weight":100}]}
-            }`,
+        }`,
 	},
 	{"y",
 		`{"ns":{"ttl":300, "records":[{"host":"ns1.dnssec_test.com."},{"host":"ns2.dnssec_test.com."}]}}`,
@@ -108,6 +108,14 @@ var dnssecTestCases = []test.Case{
 			test.DNSKEY("dnssec_test.com.	3600	IN	DNSKEY	256 3 5 AwEAAaKsF5vxBfKuqeUa4+ugW37ftFZOyo+k7r2aeJzZdIbYk//P/dpCHK4uYG8Z1dr/qeo12ECNVcf76j+XAdJD841ELiRVaZteH8TqfPQ+jdHz10e8Sfkh7OZ4oBwSCXWj+Q=="),
 			test.DNSKEY("dnssec_test.com.	3600	IN	DNSKEY	257 3 5 AwEAAeVrjiD9xhyA+UJnnei/tnoQQpLrEwFzb/blH6c80yR7APmwXrGUhbETczAFdnazO3wKXC+SIDaq4W+bcMbtf/nGY9i3dzwC25BDc5/3q05eAOLkHUlnZI/Cp2i4iUD2kw=="),
 			test.RRSIG("dnssec_test.com.	3600	IN	RRSIG	DNSKEY 5 2 3600 20190527081109 20190519051109 37456 dnssec_test.com. oVwtVEf9eOkcuSJlsH0OSBUvLOxgKM1pIAe7v717oRyCoyC+FIG5uGsdrZWhgklh/fpEmRdJQ+nHXKWT/son8zvxAoskuIIp49wwgvcS400IoHiyjIY0BHNTFPvsPdy0"),
+		},
+		Do: true,
+	},
+	{
+		Qname: "x.dnssec_test.com.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.A("x.dnssec_test.com. 300 IN A 1.2.3.4"),
+			test.A("x.dnssec_test.com. 300 IN A 5.6.7.8"),
 		},
 	},
 	{
@@ -361,10 +369,13 @@ func TestDNSSEC(t *testing.T) {
 			Qname: dnssecTestCases[i].Qname, Qtype: dnssecTestCases[i].Qtype,
 			Answer: make([]dns.RR, len(dnssecTestCases[i].Answer)),
 			Ns:     make([]dns.RR, len(dnssecTestCases[i].Ns)),
-			Do:     true,
+			Do:     dnssecTestCases[i].Do,
 			Extra: []dns.RR{
 				test.OPT(4096, true),
 			},
+		}
+		if !tc.Do {
+			tc.Extra = []dns.RR{}
 		}
 		copy(tc.Answer, dnssecTestCases[i].Answer)
 		copy(tc.Ns, dnssecTestCases[i].Ns)
@@ -410,4 +421,6 @@ func TestDNSSEC(t *testing.T) {
 		}
 		//fmt.Println("xxxx")
 	}
+
+
 }
