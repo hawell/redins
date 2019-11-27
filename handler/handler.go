@@ -274,7 +274,7 @@ loop:
 		}
 	}
 
-	if context.Auth && zone.Config.DnsSec {
+	if context.Do() && context.Auth && zone.Config.DnsSec {
 		switch res {
 		case dns.RcodeSuccess:
 			if len(context.Answer) == 0 {
@@ -768,16 +768,24 @@ func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qty
 			logger.Default.Debug("non-authoritative zone, using upstream")
 			upstreamAnswers, upstreamRes := h.upstream.Query(currentQName, qtype)
 			var ips []IP_RR
+			var upstreamTtl uint32
 			if upstreamRes == dns.RcodeSuccess {
+				if len(upstreamAnswers) > 0 {
+					upstreamTtl = upstreamAnswers[0].Header().Ttl
+				}
 				for _, r := range upstreamAnswers {
-					if a, ok := r.(*dns.A); ok {
-						ips = append(ips, IP_RR{Ip: a.A})
-					} else if aaaa, ok := r.(*dns.AAAA); ok {
-						ips = append(ips, IP_RR{Ip: aaaa.AAAA})
+					if qtype == dns.TypeA {
+						if a, ok := r.(*dns.A); ok {
+							ips = append(ips, IP_RR{Ip: a.A})
+						}
+					} else {
+						if aaaa, ok := r.(*dns.AAAA); ok {
+							ips = append(ips, IP_RR{Ip: aaaa.AAAA})
+						}
 					}
 				}
 			}
-			return ips, upstreamRes, 0
+			return ips, upstreamRes, upstreamTtl
 		}
 
 		zone := h.LoadZone(zoneName)

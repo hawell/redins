@@ -2124,14 +2124,11 @@ var testCases = []*TestCase{
 		},
 	},
 	{
-		Name:        "ANAME ttl",
-		Description: "test ttl value for aname queries",
-		Enabled:     true,
-		Config:      defaultConfig,
-		Initialize: func(testCase *TestCase) (handler *DnsRequestHandler, e error) {
-			testCase.Config.MaxTtl = 456
-			return defaultInitialize(testCase)
-		},
+		Name:           "ANAME ttl",
+		Description:    "test ttl value for aname queries",
+		Enabled:        true,
+		Config:         defaultConfig,
+		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
 		Zones:          []string{"arvancloud.com.", "arvan.an."},
 		ZoneConfigs: []string{
@@ -2163,7 +2160,7 @@ var testCases = []*TestCase{
 			{
 				Qname: "upstream.arvancloud.com.", Qtype: dns.TypeA,
 				Answer: []dns.RR{
-					test.A("upstream.arvancloud.com. 456 IN A 131.107.255.255"),
+					test.A("upstream.arvancloud.com. 303 IN A 131.107.255.255"),
 				},
 			},
 		},
