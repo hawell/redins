@@ -1665,33 +1665,55 @@ var testCases = []*TestCase{
 	},
 	{
 		Name:           "cname outside domain",
-		Description:    "cname should not leave current domain",
+		Description:    "should follow cname between authoritative zones",
 		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize:     defaultInitialize,
 		ApplyAndVerify: defaultApplyAndVerify,
-		Zones:          []string{"inside.cnm.", "outside.cnm."},
+		Zones:          []string{"inside.cnm.", "outside.cnm.", "flattening.cnm."},
 		ZoneConfigs: []string{
 			`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.inside.cnm.","ns":"ns1.inside.cnm.","refresh":44,"retry":55,"expire":66}}`,
 			`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.outside.cnm.","ns":"ns1.outside.cnm.","refresh":44,"retry":55,"expire":66}}`,
+			`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.flatenning.cnm.","ns":"ns1.flatenning.cnm.","refresh":44,"retry":55,"expire":66},"cname_flattening":true}`,
 		},
 		Entries: [][][]string{
 			{
-				{"upstream",
-					`{"cname":{"ttl":300, "host":"outside.cnm."}}`,
+				{"a",
+					`{"cname":{"ttl":300, "host":"b.inside.cnm."}}`,
+				},
+				{"b",
+					`{"cname":{"ttl":300, "host":"a.outside.cnm."}}`,
 				},
 			},
 			{
 				{"@",
 					`{"a":{"ttl":300, "records":[{"ip":"127.0.0.6"}]}}`,
 				},
+				{"a",
+					`{"cname":{"ttl":300, "host":"b.outside.cnm."}}`,
+				},
+				{"b",
+					`{"cname":{"ttl":300, "host":"outside.cnm."}}`,
+				},
+			},
+			{
+				{"a",
+					`{"cname":{"ttl":300, "host":"a.inside.cnm."}}`,
+				},
 			},
 		},
 		TestCases: []test.Case{
 			{
-				Qname: "upstream.inside.cnm.", Qtype: dns.TypeA,
+				Qname: "a.inside.cnm.", Qtype: dns.TypeA,
 				Answer: []dns.RR{
-					test.CNAME("upstream.inside.cnm. 300 IN CNAME outside.cnm."),
+					test.CNAME("a.inside.cnm. 300 IN CNAME b.inside.cnm."),
+					test.CNAME("b.inside.cnm. 300 IN CNAME a.outside.cnm."),
+				},
+			},
+			{
+				Qname: "a.flattening.cnm.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("a.flattening.cnm. 300 IN CNAME a.inside.cnm."),
 				},
 			},
 		},
@@ -2098,11 +2120,17 @@ var testCases = []*TestCase{
 		},
 		Entries: [][][]string{
 			{
+				{"a",
+					`{"cname":{"ttl":300, "host":"www.flat.com."}}`,
+				},
 				{"www",
 					`{"cname":{"ttl":300, "host":"anotherzone.com."}}`,
 				},
 			},
 			{
+				{"a",
+					`{"cname":{"ttl":300, "host":"www.noflat.com."}}`,
+				},
 				{"www",
 					`{"cname":{"ttl":300, "host":"anotherzone.com."}}`,
 				},
@@ -2110,14 +2138,15 @@ var testCases = []*TestCase{
 		},
 		TestCases: []test.Case{
 			{
-				Qname: "www.flat.com.", Qtype: dns.TypeA,
+				Qname: "a.flat.com.", Qtype: dns.TypeA,
 				Answer: []dns.RR{
-					test.CNAME("www.flat.com. 300 IN CNAME anotherzone.com."),
+					test.CNAME("a.flat.com. 300 IN CNAME anotherzone.com."),
 				},
 			},
 			{
-				Qname: "www.noflat.com.", Qtype: dns.TypeA,
+				Qname: "a.noflat.com.", Qtype: dns.TypeA,
 				Answer: []dns.RR{
+					test.CNAME("a.noflat.com. 300 IN CNAME www.noflat.com."),
 					test.CNAME("www.noflat.com. 300 IN CNAME anotherzone.com."),
 				},
 			},

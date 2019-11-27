@@ -204,7 +204,7 @@ loop:
 				if !zone.Config.CnameFlattening {
 					context.Answer = append(context.Answer, h.CNAME(currentQName, currentRecord)...)
 				} else if h.FindZone(currentRecord.CNAME.Host) != zoneName {
-					context.Answer = append(context.Answer, h.CNAME(currentQName, currentRecord)...)
+					context.Answer = append(context.Answer, h.CNAME(context.Name(), currentRecord)...)
 					break loop
 				}
 				currentQName = dns.Fqdn(currentRecord.CNAME.Host)
