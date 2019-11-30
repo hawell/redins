@@ -17,7 +17,7 @@ type TestCase struct {
 	Name           string
 	Description    string
 	Enabled        bool
-	Config         HandlerConfig
+	Config         DnsRequestHandlerConfig
 	Initialize     func(testCase *TestCase) (*DnsRequestHandler, error)
 	ApplyAndVerify func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T)
 	Zones          []string
@@ -68,7 +68,7 @@ func defaultApplyAndVerify(testCase *TestCase, handler *DnsRequestHandler, t *te
 	}
 }
 
-var defaultConfig = HandlerConfig{
+var defaultConfig = DnsRequestHandlerConfig{
 	MaxTtl:       300,
 	CacheTimeout: 60,
 	ZoneReload:   600,

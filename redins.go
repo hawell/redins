@@ -46,10 +46,10 @@ func handleRequest(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 type RedinsConfig struct {
-	Server    []handler.ServerConfig    `json:"server,omitempty"`
-	ErrorLog  logger.LogConfig          `json:"error_log,omitempty"`
-	Handler   handler.HandlerConfig     `json:"handler,omitempty"`
-	RateLimit handler.RateLimiterConfig `json:"ratelimit,omitempty"`
+	Server    []handler.ServerConfig          `json:"server,omitempty"`
+	ErrorLog  logger.LogConfig                `json:"error_log,omitempty"`
+	Handler   handler.DnsRequestHandlerConfig `json:"handler,omitempty"`
+	RateLimit handler.RateLimiterConfig       `json:"ratelimit,omitempty"`
 }
 
 func LoadConfig(path string) (*RedinsConfig, error) {
@@ -61,7 +61,7 @@ func LoadConfig(path string) (*RedinsConfig, error) {
 				Protocol: "udp",
 			},
 		},
-		Handler: handler.HandlerConfig{
+		Handler: handler.DnsRequestHandlerConfig{
 			Upstream: []handler.UpstreamConfig{
 				{
 					Ip:       "1.1.1.1",
@@ -324,7 +324,7 @@ func Verify(configFile string) {
 			var file *os.File
 			file, err = os.OpenFile(config.Target, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 			if err == nil {
-				file.Close()
+				_ = file.Close()
 			}
 			printResult(msg, err)
 		}
@@ -337,7 +337,7 @@ func Verify(configFile string) {
 				var con *net.UDPConn
 				con, err = net.DialUDP("udp", nil, raddr)
 				if err == nil {
-					con.Close()
+					_ = con.Close()
 				}
 			}
 			printResult(msg, err)

@@ -268,7 +268,7 @@ var dnssecTestCases = []test.Case{
 	},
 }
 
-var dnssecTestConfig = HandlerConfig{
+var dnssecTestConfig = DnsRequestHandlerConfig{
 	MaxTtl:       300,
 	CacheTimeout: 60,
 	ZoneReload:   600,

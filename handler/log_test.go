@@ -18,7 +18,7 @@ import (
 	capnp "zombiezen.com/go/capnproto2"
 )
 
-var logTestConfig = HandlerConfig{
+var logTestConfig = DnsRequestHandlerConfig{
 	MaxTtl:            300,
 	CacheTimeout:      60,
 	ZoneReload:        600,

@@ -18,7 +18,7 @@ import (
 )
 
 type DnsRequestHandler struct {
-	Config         *HandlerConfig
+	Config         *DnsRequestHandlerConfig
 	Zones          *iradix.Tree
 	LastZoneUpdate time.Time
 	Redis          *uperdis.Redis
@@ -33,7 +33,7 @@ type DnsRequestHandler struct {
 	logQueue       chan map[string]interface{}
 }
 
-type HandlerConfig struct {
+type DnsRequestHandlerConfig struct {
 	Upstream          []UpstreamConfig    `json:"upstream,omitempty"`
 	GeoIp             GeoIpConfig         `json:"geoip,omitempty"`
 	HealthCheck       HealthcheckConfig   `json:"healthcheck,omitempty"`
@@ -45,7 +45,7 @@ type HandlerConfig struct {
 	Log               logger.LogConfig    `json:"log,omitempty"`
 }
 
-func NewHandler(config *HandlerConfig) *DnsRequestHandler {
+func NewHandler(config *DnsRequestHandlerConfig) *DnsRequestHandler {
 	h := &DnsRequestHandler{
 		Config: config,
 	}
