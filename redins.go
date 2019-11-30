@@ -9,7 +9,6 @@ import (
 	"github.com/json-iterator/go"
 	"github.com/logrusorgru/aurora"
 	"github.com/oschwald/maxminddb-golang"
-	"io/ioutil"
 	"log"
 	"log/syslog"
 	"net"
@@ -198,13 +197,15 @@ func LoadConfig(path string) (*RedinsConfig, error) {
 			WhiteList: []string{},
 		},
 	}
-	raw, err := ioutil.ReadFile(path)
+	configFile, err  := os.Open(path)
 	if err != nil {
 		log.Printf("[ERROR] cannot load file %s : %s", path, err)
 		log.Printf("[INFO] loading default config")
 		return config, err
 	}
-	err = jsoniter.Unmarshal(raw, config)
+	decoder := jsoniter.NewDecoder(configFile)
+	decoder.DisallowUnknownFields()
+	err = decoder.Decode(config)
 	if err != nil {
 		log.Printf("[ERROR] cannot load json file")
 		log.Printf("[INFO] loading default config")
