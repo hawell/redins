@@ -5,6 +5,7 @@ import (
 	"github.com/json-iterator/go"
 	"github.com/karlseguin/ccache"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/singleflight"
 	"math/rand"
 	"net"
 	"strings"
@@ -24,6 +25,7 @@ type DnsRequestHandler struct {
 	Redis          *uperdis.Redis
 	Logger         *logger.EventLogger
 	RecordCache    *ccache.Cache
+	RecordInflight *singleflight.Group
 	ZoneCache      *ccache.Cache
 	geoip          *GeoIp
 	healthcheck    *Healthcheck
@@ -87,6 +89,7 @@ func NewHandler(config *DnsRequestHandlerConfig) *DnsRequestHandler {
 	h.LoadZones()
 
 	h.RecordCache = ccache.New(ccache.Configure().MaxSize(100000).ItemsToPrune(100))
+	h.RecordInflight = new(singleflight.Group)
 	h.ZoneCache = ccache.New(ccache.Configure().MaxSize(10000).ItemsToPrune(100))
 
 	go h.healthcheck.Start()
@@ -657,44 +660,51 @@ func (h *DnsRequestHandler) LoadLocation(location string, z *Zone) *Record {
 		logger.Default.Debug("cached")
 		return cachedRecord.Value().(*Record)
 	}
-	var label, name string
-	if location == z.Name {
-		name = z.Name
-		label = "@"
-	} else {
-		name = location + "." + z.Name
-		label = location
-	}
-	r := new(Record)
-	r.A = IP_RRSet{
-		FilterConfig: IpFilterConfig{
-			Count:     "multi",
-			Order:     "none",
-			GeoFilter: "none",
-		},
-		HealthCheckConfig: IpHealthCheckConfig{
-			Enable: false,
-		},
-	}
-	r.AAAA = r.A
-	r.Zone = z
-	r.Name = name
 
-	val, err := h.Redis.HGet("redins:zones:"+z.Name, label)
-	if err != nil {
-		logger.Default.Error(err, " : ", label, " ", z.Name)
-		return nil
-	}
-	if val != "" {
-		err := jsoniter.Unmarshal([]byte(val), r)
-		if err != nil {
-			logger.Default.Errorf("cannot parse json : zone -> %s, location -> %s, \"%s\" -> %s", z.Name, location, val, err)
-			return nil
+	answer, _, _ := h.RecordInflight.Do(key, func() (interface{}, error) {
+		var label, name string
+		if location == z.Name {
+			name = z.Name
+			label = "@"
+		} else {
+			name = location + "." + z.Name
+			label = location
 		}
-	}
+		r := new(Record)
+		r.A = IP_RRSet{
+			FilterConfig: IpFilterConfig{
+				Count:     "multi",
+				Order:     "none",
+				GeoFilter: "none",
+			},
+			HealthCheckConfig: IpHealthCheckConfig{
+				Enable: false,
+			},
+		}
+		r.AAAA = r.A
+		r.Zone = z
+		r.Name = name
 
-	h.RecordCache.Set(key, r, time.Duration(h.Config.CacheTimeout)*time.Second)
-	return r
+		val, err := h.Redis.HGet("redins:zones:"+z.Name, label)
+		if err != nil {
+			logger.Default.Error(err, " : ", label, " ", z.Name)
+			return nil, err
+		}
+		if val != "" {
+			err := jsoniter.Unmarshal([]byte(val), r)
+			if err != nil {
+				logger.Default.Errorf("cannot parse json : zone -> %s, location -> %s, \"%s\" -> %s", z.Name, location, val, err)
+				return nil, err
+			}
+		}
+		h.RecordCache.Set(key, r, time.Duration(h.Config.CacheTimeout)*time.Second)
+		return r, nil
+	})
+
+	if answer != nil {
+		return answer.(*Record)
+	}
+	return nil
 }
 
 func (h *DnsRequestHandler) SetLocation(location string, z *Zone, val *Record) {
