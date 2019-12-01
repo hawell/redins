@@ -3,6 +3,7 @@ package handler
 import (
 	"arvancloud/redins/handler/logformat"
 	"github.com/json-iterator/go"
+	"github.com/karlseguin/ccache"
 	"github.com/sirupsen/logrus"
 	"math/rand"
 	"net"
@@ -14,7 +15,6 @@ import (
 	"github.com/hawell/logger"
 	"github.com/hawell/uperdis"
 	"github.com/miekg/dns"
-	"github.com/patrickmn/go-cache"
 )
 
 type DnsRequestHandler struct {
@@ -23,8 +23,8 @@ type DnsRequestHandler struct {
 	LastZoneUpdate time.Time
 	Redis          *uperdis.Redis
 	Logger         *logger.EventLogger
-	RecordCache    *cache.Cache
-	ZoneCache      *cache.Cache
+	RecordCache    *ccache.Cache
+	ZoneCache      *ccache.Cache
 	geoip          *GeoIp
 	healthcheck    *Healthcheck
 	upstream       *Upstream
@@ -86,8 +86,8 @@ func NewHandler(config *DnsRequestHandlerConfig) *DnsRequestHandler {
 
 	h.LoadZones()
 
-	h.RecordCache = cache.New(time.Second*time.Duration(h.Config.CacheTimeout), time.Duration(h.Config.CacheTimeout)*time.Second*10)
-	h.ZoneCache = cache.New(time.Second*time.Duration(h.Config.CacheTimeout), time.Duration(h.Config.CacheTimeout)*time.Second*10)
+	h.RecordCache = ccache.New(ccache.Configure().MaxSize(100000).ItemsToPrune(100))
+	h.ZoneCache = ccache.New(ccache.Configure().MaxSize(10000).ItemsToPrune(100))
 
 	go h.healthcheck.Start()
 
@@ -149,6 +149,7 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 		h.Response(context, dns.RcodeNotAuth)
 		return
 	}
+	logger.Default.Debugf("[%d] zone name : %s", context.Req.Id, zoneName)
 
 	zone := h.LoadZone(zoneName)
 	context.LogData["domain_uuid"] = zone.Config.DomainId
@@ -207,11 +208,14 @@ loop:
 				context.Auth = false
 				context.Authority = append(context.Authority, h.NS(currentQName, currentRecord)...)
 				for _, ns := range currentRecord.NS.Data {
-					glueRecord := h.LoadLocation(strings.TrimSuffix(ns.Host, "."+zone.Name), zone)
-					// XXX : should we return with RcodeServerFailure?
-					if glueRecord != nil {
-						context.Additional = append(context.Additional, h.A(ns.Host, glueRecord, glueRecord.A.Data)...)
-						context.Additional = append(context.Additional, h.AAAA(ns.Host, glueRecord, glueRecord.AAAA.Data)...)
+					glueLocation, match := zone.FindLocation(ns.Host)
+					if match != NoMatch {
+						glueRecord := h.LoadLocation(glueLocation, zone)
+						// XXX : should we return with RcodeServerFailure?
+						if glueRecord != nil {
+							context.Additional = append(context.Additional, h.A(ns.Host, glueRecord, glueRecord.A.Data)...)
+							context.Additional = append(context.Additional, h.AAAA(ns.Host, glueRecord, glueRecord.AAAA.Data)...)
+						}
 					}
 				}
 				res = dns.RcodeNotAuth
@@ -596,9 +600,9 @@ func (h *DnsRequestHandler) loadKey(pub string, priv string) *ZoneKey {
 }
 
 func (h *DnsRequestHandler) LoadZone(zone string) *Zone {
-	cachedZone, found := h.ZoneCache.Get(zone)
-	if found {
-		return cachedZone.(*Zone)
+	cachedZone := h.ZoneCache.Get(zone)
+	if cachedZone != nil && !cachedZone.Expired() {
+		return cachedZone.Value().(*Zone)
 	}
 
 	locations, err := h.Redis.GetHKeys("redins:zones:" + zone)
@@ -648,10 +652,10 @@ func (h *DnsRequestHandler) LoadZoneKeys(z *Zone) {
 
 func (h *DnsRequestHandler) LoadLocation(location string, z *Zone) *Record {
 	key := location + "." + z.Name
-	cachedRecord, found := h.RecordCache.Get(key)
-	if found {
+	cachedRecord := h.RecordCache.Get(key)
+	if cachedRecord != nil && !cachedRecord.Expired() {
 		logger.Default.Debug("cached")
-		return cachedRecord.(*Record)
+		return cachedRecord.Value().(*Record)
 	}
 	var label, name string
 	if location == z.Name {
@@ -678,7 +682,7 @@ func (h *DnsRequestHandler) LoadLocation(location string, z *Zone) *Record {
 
 	val, err := h.Redis.HGet("redins:zones:"+z.Name, label)
 	if err != nil {
-		logger.Default.Error(err)
+		logger.Default.Error(err, " : ", label, " ", z.Name)
 		return nil
 	}
 	if val != "" {
