@@ -2322,6 +2322,46 @@ var testCases = []*TestCase{
 			},
 		},
 	},
+	{
+		Name:           "implicit root location",
+		Description:    "root location always exists",
+		Enabled:        true,
+		Config:         defaultConfig,
+		Initialize:     defaultInitialize,
+		ApplyAndVerify: defaultApplyAndVerify,
+		Zones:          []string{"arvancloud.root."},
+		ZoneConfigs: []string{
+			`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.arvancloud.root.","ns":"ns1.arvancloud.root.","refresh":44,"retry":55,"expire":66}}`,
+		},
+		Entries: [][][]string{
+			{
+				{"www",
+					`{"a":{"ttl":"300", "records":[{"ip":"3.3.3.1"}]}}`,
+				},
+			},
+		},
+		TestCases: []test.Case{
+			{
+				Qname: "arvancloud.root.", Qtype: dns.TypeA,
+				Ns: []dns.RR{
+					test.SOA("arvancloud.root. 300 IN SOA ns1.arvancloud.root. hostmaster.arvancloud.root. 1460498836 44 55 66 100"),
+				},
+			},
+			{
+				Qname: "arvancloud.root.", Qtype: dns.TypeSOA,
+				Rcode: dns.RcodeSuccess,
+				Answer: []dns.RR{
+					test.SOA("arvancloud.root. 300 IN SOA ns1.arvancloud.root. hostmaster.arvancloud.root. 1460498836 44 55 66 100"),
+				},
+			},
+			{
+				Qname: "arvancloud.root.", Qtype: dns.TypeTXT,
+				Ns: []dns.RR{
+					test.SOA("arvancloud.root. 300 IN SOA ns1.arvancloud.root. hostmaster.arvancloud.root. 1460498836 44 55 66 100"),
+				},
+			},
+		},
+	},
 }
 
 func center(s string, w int) string {

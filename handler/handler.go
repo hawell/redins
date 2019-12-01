@@ -2,6 +2,8 @@ package handler
 
 import (
 	"arvancloud/redins/handler/logformat"
+	"errors"
+	"fmt"
 	"github.com/json-iterator/go"
 	"github.com/karlseguin/ccache"
 	"github.com/sirupsen/logrus"
@@ -700,6 +702,17 @@ func (h *DnsRequestHandler) LoadLocation(location string, z *Zone) *Record {
 		r.Zone = z
 		r.Name = name
 
+		if _, ok := z.Locations[label]; !ok {
+			// implicit root location
+			if label == "@" {
+				h.RecordCache.Set(key, r, time.Duration(h.Config.CacheTimeout)*time.Second)
+				return r, nil
+			}
+			err := errors.New(fmt.Sprintf("location %s not exists in %s", label, z.Name))
+			logger.Default.Error(err)
+			return nil, err
+		}
+
 		val, err := h.Redis.HGet("redins:zones:"+z.Name, label)
 		if err != nil {
 			logger.Default.Error(err, " : ", label, " ", z.Name)
@@ -786,7 +799,11 @@ func (h *DnsRequestHandler) FindCAA(record *Record) *Record {
 		if len(splits) != 2 {
 			break
 		}
-		currentLocation = splits[1]
+		var match int
+		currentLocation, match = zone.FindLocation(splits[1])
+		if match == NoMatch {
+			return nil
+		}
 		currentRecord = h.LoadLocation(currentLocation, zone)
 		if currentRecord == nil {
 			return nil
