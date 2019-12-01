@@ -50,6 +50,12 @@ type DnsRequestHandlerConfig struct {
 	Log               logger.LogConfig    `json:"log,omitempty"`
 }
 
+const (
+	RecordCacheSize = 1000000
+	ZoneCacheSize = 10000
+	CacheItemsToPrune = 100
+)
+
 func NewHandler(config *DnsRequestHandlerConfig) *DnsRequestHandler {
 	h := &DnsRequestHandler{
 		Config: config,
@@ -91,9 +97,9 @@ func NewHandler(config *DnsRequestHandlerConfig) *DnsRequestHandler {
 
 	h.LoadZones()
 
-	h.RecordCache = ccache.New(ccache.Configure().MaxSize(100000).ItemsToPrune(100))
+	h.RecordCache = ccache.New(ccache.Configure().MaxSize(RecordCacheSize).ItemsToPrune(CacheItemsToPrune))
 	h.RecordInflight = new(singleflight.Group)
-	h.ZoneCache = ccache.New(ccache.Configure().MaxSize(10000).ItemsToPrune(100))
+	h.ZoneCache = ccache.New(ccache.Configure().MaxSize(ZoneCacheSize).ItemsToPrune(CacheItemsToPrune))
 	h.ZoneInflight = new(singleflight.Group)
 
 	go h.healthcheck.Start()
