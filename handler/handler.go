@@ -187,6 +187,10 @@ loop:
 		case ExactMatch:
 			logger.Default.Debugf("[%d] loading location %s", context.Req.Id, location)
 			currentRecord = h.LoadLocation(location, zone)
+			if currentRecord == nil {
+				res = dns.RcodeServerFailure
+				break loop
+			}
 			if currentRecord.CNAME != nil && context.QType() != dns.TypeCNAME {
 				logger.Default.Debugf("[%d] cname chain %s -> %s", context.Req.Id, currentQName, currentRecord.CNAME.Host)
 				if !zone.Config.CnameFlattening {
@@ -204,8 +208,11 @@ loop:
 				context.Authority = append(context.Authority, h.NS(currentQName, currentRecord)...)
 				for _, ns := range currentRecord.NS.Data {
 					glueRecord := h.LoadLocation(strings.TrimSuffix(ns.Host, "."+zone.Name), zone)
-					context.Additional = append(context.Additional, h.A(ns.Host, glueRecord, glueRecord.A.Data)...)
-					context.Additional = append(context.Additional, h.AAAA(ns.Host, glueRecord, glueRecord.AAAA.Data)...)
+					// XXX : should we return with RcodeServerFailure?
+					if glueRecord != nil {
+						context.Additional = append(context.Additional, h.A(ns.Host, glueRecord, glueRecord.A.Data)...)
+						context.Additional = append(context.Additional, h.AAAA(ns.Host, glueRecord, glueRecord.AAAA.Data)...)
+					}
 				}
 				res = dns.RcodeNotAuth
 				break loop
@@ -248,6 +255,7 @@ loop:
 			case dns.TypeSRV:
 				answer = h.SRV(currentQName, currentRecord)
 			case dns.TypeCAA:
+				// TODO: handle FindCAA error response
 				caaRecord := h.FindCAA(currentRecord)
 				if caaRecord != nil {
 					answer = h.CAA(currentQName, caaRecord)
@@ -264,10 +272,12 @@ loop:
 				}
 			default:
 				context.Answer = []dns.RR{}
+				context.Authority = []dns.RR{zone.Config.SOA.Data}
 				res = dns.RcodeNotImplemented
+				break loop
 			}
 			context.Answer = append(context.Answer, answer...)
-			if len(answer) == 0 {
+			if len(answer) == 0 && res == dns.RcodeSuccess {
 				context.Authority = []dns.RR{zone.Config.SOA.Data}
 			}
 			break loop
@@ -666,11 +676,16 @@ func (h *DnsRequestHandler) LoadLocation(location string, z *Zone) *Record {
 	r.Zone = z
 	r.Name = name
 
-	val, _ := h.Redis.HGet("redins:zones:"+z.Name, label)
+	val, err := h.Redis.HGet("redins:zones:"+z.Name, label)
+	if err != nil {
+		logger.Default.Error(err)
+		return nil
+	}
 	if val != "" {
 		err := jsoniter.Unmarshal([]byte(val), r)
 		if err != nil {
 			logger.Default.Errorf("cannot parse json : zone -> %s, location -> %s, \"%s\" -> %s", z.Name, location, val, err)
+			return nil
 		}
 	}
 
@@ -742,8 +757,14 @@ func (h *DnsRequestHandler) FindCAA(record *Record) *Record {
 		}
 		currentLocation = splits[1]
 		currentRecord = h.LoadLocation(currentLocation, zone)
+		if currentRecord == nil {
+			return nil
+		}
 	}
 	currentRecord = h.LoadLocation(zone.Name, zone)
+	if currentRecord == nil {
+		return nil
+	}
 	if len(currentRecord.CAA.Data) != 0 {
 		return currentRecord
 	}
@@ -767,9 +788,9 @@ func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qty
 		if zoneName == "" {
 			logger.Default.Debug("non-authoritative zone, using upstream")
 			upstreamAnswers, upstreamRes := h.upstream.Query(currentQName, qtype)
-			var ips []IP_RR
-			var upstreamTtl uint32
 			if upstreamRes == dns.RcodeSuccess {
+				var ips []IP_RR
+				var upstreamTtl uint32
 				if len(upstreamAnswers) > 0 {
 					upstreamTtl = upstreamAnswers[0].Header().Ttl
 				}
@@ -784,18 +805,23 @@ func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qty
 						}
 					}
 				}
+				return ips, upstreamRes, upstreamTtl
+			} else {
+				return []IP_RR{}, dns.RcodeServerFailure, 0
 			}
-			return ips, upstreamRes, upstreamTtl
 		}
 
 		zone := h.LoadZone(zoneName)
 		location, _ := zone.FindLocation(currentQName)
 		if location == "" {
 			logger.Default.Debug("location not found")
-			return []IP_RR{}, dns.RcodeNameError, 0
+			return []IP_RR{}, dns.RcodeServerFailure, 0
 		}
 
 		currentRecord = h.LoadLocation(location, zone)
+		if currentRecord == nil {
+			return []IP_RR{}, dns.RcodeServerFailure, 0
+		}
 		if currentRecord.CNAME != nil {
 			logger.Default.Debug("cname")
 			currentQName = currentRecord.CNAME.Host

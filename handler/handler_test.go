@@ -958,7 +958,7 @@ var testCases = []*TestCase{
 					`{"aname":{"location":"e.arvancloud.com."}}`,
 				},
 				{"e",
-					`"txt":{"ttl":300, "records":[{"text":"foo"}]},`,
+					`{"txt":{"ttl":300, "records":[{"text":"foo"}]}}`,
 				},
 				{"upstream",
 					`{"aname":{"location":"dns.msftncsi.com."}}`,
@@ -1000,17 +1000,11 @@ var testCases = []*TestCase{
 			},
 			{
 				Qname: "nxlocal.arvancloud.com.", Qtype: dns.TypeA,
-				Ns: []dns.RR{
-					test.SOA("arvancloud.com.	300	IN	SOA	ns1.arvancloud.com. hostmaster.arvancloud.com. 1570970363 44 55 66 100"),
-				},
-				Rcode: dns.RcodeNameError,
+				Rcode: dns.RcodeServerFailure,
 			},
 			{
 				Qname: "nxlocal.arvancloud.com.", Qtype: dns.TypeAAAA,
-				Ns: []dns.RR{
-					test.SOA("arvancloud.com.	300	IN	SOA	ns1.arvancloud.com. hostmaster.arvancloud.com. 1570970363 44 55 66 100"),
-				},
-				Rcode: dns.RcodeNameError,
+				Rcode: dns.RcodeServerFailure,
 			},
 			{
 				Qname: "empty.arvancloud.com.", Qtype: dns.TypeA,
@@ -1026,17 +1020,11 @@ var testCases = []*TestCase{
 			},
 			{
 				Qname: "nxupstream.arvancloud.com.", Qtype: dns.TypeA,
-				Ns: []dns.RR{
-					test.SOA("arvancloud.com.	300	IN	SOA	ns1.arvancloud.com. hostmaster.arvancloud.com. 1570970363 44 55 66 100"),
-				},
-				Rcode: dns.RcodeNameError,
+				Rcode: dns.RcodeServerFailure,
 			},
 			{
 				Qname: "nxupstream.arvancloud.com.", Qtype: dns.TypeAAAA,
-				Ns: []dns.RR{
-					test.SOA("arvancloud.com.	300	IN	SOA	ns1.arvancloud.com. hostmaster.arvancloud.com. 1570970363 44 55 66 100"),
-				},
-				Rcode: dns.RcodeNameError,
+				Rcode: dns.RcodeServerFailure,
 			},
 		},
 	},
@@ -2292,6 +2280,45 @@ var testCases = []*TestCase{
 				Answer: []dns.RR{
 					test.A("upstream.arvancloud.com. 303 IN A 131.107.255.255"),
 				},
+			},
+		},
+	},
+	{
+		Name:           "malformed data",
+		Description:    "test proper handling of malformed data",
+		Enabled:        true,
+		Config:         defaultConfig,
+		Initialize:     defaultInitialize,
+		ApplyAndVerify: defaultApplyAndVerify,
+		Zones:          []string{"arvancloud.mal."},
+		ZoneConfigs: []string{
+			`{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.arvancloud.mal.","ns":"ns1.arvancloud.mal.","refresh":44,"retry":55,"expire":66}}`,
+		},
+		Entries: [][][]string{
+			{
+				{"@",
+					`{"aname":{"location":"mal1.arvancloud.mal."}}`,
+				},
+				{"www",
+					`{"a":{"ttl":"300", "records":[{"ip":"3.3.3.1"}]}}`,
+				},
+				{"mal1",
+					`!@#$$^$*^&^dfgsfdg@#@EWDS`,
+				},
+			},
+		},
+		TestCases: []test.Case{
+			{
+				Qname: "arvancloud.mal.", Qtype: dns.TypeA,
+				Rcode: dns.RcodeServerFailure,
+			},
+			{
+				Qname: "www.arvancloud.mal.", Qtype: dns.TypeA,
+				Rcode: dns.RcodeServerFailure,
+			},
+			{
+				Qname: "mal1.arvancloud.mal.", Qtype: dns.TypeA,
+				Rcode: dns.RcodeServerFailure,
 			},
 		},
 	},
