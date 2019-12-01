@@ -27,6 +27,7 @@ type DnsRequestHandler struct {
 	RecordCache    *ccache.Cache
 	RecordInflight *singleflight.Group
 	ZoneCache      *ccache.Cache
+	ZoneInflight   *singleflight.Group
 	geoip          *GeoIp
 	healthcheck    *Healthcheck
 	upstream       *Upstream
@@ -91,6 +92,7 @@ func NewHandler(config *DnsRequestHandlerConfig) *DnsRequestHandler {
 	h.RecordCache = ccache.New(ccache.Configure().MaxSize(100000).ItemsToPrune(100))
 	h.RecordInflight = new(singleflight.Group)
 	h.ZoneCache = ccache.New(ccache.Configure().MaxSize(10000).ItemsToPrune(100))
+	h.ZoneInflight = new(singleflight.Group)
 
 	go h.healthcheck.Start()
 
@@ -148,13 +150,16 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 
 	zoneName := h.FindZone(context.Name())
 	if zoneName == "" {
-		context.LogData["domain_uuid"] = ""
 		h.Response(context, dns.RcodeNotAuth)
 		return
 	}
 	logger.Default.Debugf("[%d] zone name : %s", context.Req.Id, zoneName)
 
 	zone := h.LoadZone(zoneName)
+	if zone == nil {
+		h.Response(context, dns.RcodeServerFailure)
+		return
+	}
 	context.LogData["domain_uuid"] = zone.Config.DomainId
 
 	loopCount := 0
@@ -382,6 +387,7 @@ func (h *DnsRequestHandler) LoadZones() {
 	zones, err := h.Redis.SMembers("redins:zones")
 	if err != nil {
 		logger.Default.Error("cannot load zones : ", err)
+		return
 	}
 	newZones := iradix.New()
 	for _, zone := range zones {
@@ -608,20 +614,29 @@ func (h *DnsRequestHandler) LoadZone(zone string) *Zone {
 		return cachedZone.Value().(*Zone)
 	}
 
-	locations, err := h.Redis.GetHKeys("redins:zones:" + zone)
-	if err != nil {
-		logger.Default.Errorf("cannot load zone %s locations : %s", zone, err)
-	}
-	config, err := h.Redis.Get("redins:zones:" + zone + ":config")
-	if err != nil {
-		logger.Default.Errorf("cannot load zone %s config : %s", zone, err)
-	}
+	answer, _, _ := h.ZoneInflight.Do(zone, func() (interface{}, error) {
+		locations, err := h.Redis.GetHKeys("redins:zones:" + zone)
+		if err != nil {
+			logger.Default.Errorf("cannot load zone %s locations : %s", zone, err)
+			return nil, err
+		}
+		config, err := h.Redis.Get("redins:zones:" + zone + ":config")
+		if err != nil {
+			logger.Default.Errorf("cannot load zone %s config : %s", zone, err)
+		}
 
-	z := NewZone(zone, locations, config)
-	h.LoadZoneKeys(z)
+		z := NewZone(zone, locations, config)
+		h.LoadZoneKeys(z)
 
-	h.ZoneCache.Set(zone, z, time.Duration(h.Config.CacheTimeout)*time.Second)
-	return z
+		h.ZoneCache.Set(zone, z, time.Duration(h.Config.CacheTimeout)*time.Second)
+		return z, nil
+	})
+	if answer != nil {
+		return answer.(*Zone)
+	} else if cachedZone != nil {
+		return cachedZone.Value().(*Zone)
+	}
+	return nil
 }
 
 func (h *DnsRequestHandler) LoadZoneKeys(z *Zone) {
@@ -703,6 +718,8 @@ func (h *DnsRequestHandler) LoadLocation(location string, z *Zone) *Record {
 
 	if answer != nil {
 		return answer.(*Record)
+	} else if cachedRecord != nil {
+		return cachedRecord.Value().(*Record)
 	}
 	return nil
 }
@@ -826,9 +843,13 @@ func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qty
 		}
 
 		zone := h.LoadZone(zoneName)
+		if zone == nil {
+			logger.Default.Debugf("error loading zone : %s", zoneName)
+			return []IP_RR{}, dns.RcodeServerFailure, 0
+		}
 		location, _ := zone.FindLocation(currentQName)
 		if location == "" {
-			logger.Default.Debug("location not found")
+			logger.Default.Debugf("location not found for %s", currentQName)
 			return []IP_RR{}, dns.RcodeServerFailure, 0
 		}
 
