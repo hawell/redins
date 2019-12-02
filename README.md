@@ -64,14 +64,22 @@ dns query handler configuration
     "cache_timeout": 60,
     "zone_reload": 600,
     "log_source_location": false,
-    "upstream_fallback": false,
     "redis": {
         "address": "127.0.0.1:6379",
         "net": "tcp",
         "password": "",
         "db": 0,
         "prefix": "test_",
-        "suffix": "_test"
+        "suffix": "_test",
+        "connection": {
+          "max_idle_connections": 10,
+          "max_active_connections": 10,
+          "connect_timeout": 500,
+          "read_timeout": 500,
+          "idle_keep_alive": 30,
+          "max_keep_alive": 0,
+          "wait_for_connection": true
+        }
     },
     "log": {
     "enable": true,
@@ -339,7 +347,6 @@ sample config:
     "cache_timeout": 60,
     "zone_reload": 600,
     "log_source_location": false,
-    "upstream_fallback": false,
     "redis": {
       "ip": "127.0.0.1",
       "port": 6379,
