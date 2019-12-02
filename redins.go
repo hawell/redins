@@ -9,6 +9,7 @@ import (
 	"github.com/json-iterator/go"
 	"github.com/logrusorgru/aurora"
 	"github.com/oschwald/maxminddb-golang"
+	"io/ioutil"
 	"log"
 	"log/syslog"
 	"net"
@@ -52,81 +53,41 @@ type RedinsConfig struct {
 	RateLimit handler.RateLimiterConfig       `json:"ratelimit"`
 }
 
-func LoadConfig(path string) (*RedinsConfig, error) {
-	config := &RedinsConfig{
-		Server: []handler.ServerConfig{
-			{
-				Ip:       "127.0.0.1",
-				Port:     1053,
-				Protocol: "udp",
+var redinsDefaultConfig = &RedinsConfig{
+	Server: []handler.ServerConfig{
+		{
+			Ip:       "127.0.0.1",
+			Port:     1053,
+			Protocol: "udp",
+			Tls: handler.TlsConfig{
+				Enable:   false,
+				CertPath: "",
+				KeyPath:  "",
+				CaPath:   "",
 			},
 		},
-		Handler: handler.DnsRequestHandlerConfig{
-			Upstream: []handler.UpstreamConfig{
-				{
-					Ip:       "1.1.1.1",
-					Port:     53,
-					Protocol: "udp",
-					Timeout:  400,
-				},
+	},
+	Handler: handler.DnsRequestHandlerConfig{
+		Upstream: []handler.UpstreamConfig{
+			{
+				Ip:       "1.1.1.1",
+				Port:     53,
+				Protocol: "udp",
+				Timeout:  400,
 			},
-			GeoIp: handler.GeoIpConfig{
-				Enable:    false,
-				CountryDB: "geoCity.mmdb",
-				ASNDB:     "geoIsp.mmdb",
-			},
-			HealthCheck: handler.HealthcheckConfig{
-				Enable:             false,
-				MaxRequests:        10,
-				MaxPendingRequests: 100,
-				UpdateInterval:     600,
-				CheckInterval:      600,
-				RedisStatusServer: uperdis.RedisConfig{
-					Address:  "127.0.0.1:6379",
-					Net:      "tcp",
-					DB:       0,
-					Password: "",
-					Prefix:   "redins_",
-					Suffix:   "_redins",
-					Connection: uperdis.RedisConnectionConfig{
-						MaxIdleConnections:   10,
-						MaxActiveConnections: 10,
-						ConnectTimeout:       500,
-						ReadTimeout:          500,
-						IdleKeepAlive:        30,
-						MaxKeepAlive:         0,
-						WaitForConnection:    false,
-					},
-				},
-				Log: logger.LogConfig{
-					Enable:     true,
-					Target:     "file",
-					Level:      "info",
-					Path:       "/tmp/healthcheck.log",
-					Format:     "json",
-					TimeFormat: time.RFC3339,
-					Sentry: logger.SentryConfig{
-						Enable: false,
-					},
-					Syslog: logger.SyslogConfig{
-						Enable: false,
-					},
-					Kafka: logger.KafkaConfig{
-						Enable:      false,
-						Topic:       "redins",
-						Brokers:     []string{"127.0.0.1:9092"},
-						Format:      "json",
-						Compression: "none",
-						Timeout:     3000,
-						BufferSize:  1000,
-					},
-				},
-			},
-			MaxTtl:            3600,
-			CacheTimeout:      60,
-			ZoneReload:        600,
-			LogSourceLocation: false,
-			Redis: uperdis.RedisConfig{
+		},
+		GeoIp: handler.GeoIpConfig{
+			Enable:    false,
+			CountryDB: "geoCity.mmdb",
+			ASNDB:     "geoIsp.mmdb",
+		},
+		HealthCheck: handler.HealthcheckConfig{
+			Enable:             false,
+			MaxRequests:        10,
+			MaxPendingRequests: 100,
+			UpdateInterval:     600,
+			CheckInterval:      600,
+			RedisStatusServer: uperdis.RedisConfig{
 				Address:  "127.0.0.1:6379",
 				Net:      "tcp",
 				DB:       0,
@@ -147,14 +108,17 @@ func LoadConfig(path string) (*RedinsConfig, error) {
 				Enable:     true,
 				Target:     "file",
 				Level:      "info",
-				Path:       "/tmp/redins.log",
+				Path:       "/tmp/healthcheck.log",
 				Format:     "json",
 				TimeFormat: time.RFC3339,
 				Sentry: logger.SentryConfig{
 					Enable: false,
+					DSN:    "",
 				},
 				Syslog: logger.SyslogConfig{
-					Enable: false,
+					Enable:   false,
+					Protocol: "tcp",
+					Address:  "localhost:514",
 				},
 				Kafka: logger.KafkaConfig{
 					Enable:      false,
@@ -167,17 +131,42 @@ func LoadConfig(path string) (*RedinsConfig, error) {
 				},
 			},
 		},
-		ErrorLog: logger.LogConfig{
+		MaxTtl:            3600,
+		CacheTimeout:      60,
+		ZoneReload:        600,
+		LogSourceLocation: false,
+		Redis: uperdis.RedisConfig{
+			Address:  "127.0.0.1:6379",
+			Net:      "tcp",
+			DB:       0,
+			Password: "",
+			Prefix:   "redins_",
+			Suffix:   "_redins",
+			Connection: uperdis.RedisConnectionConfig{
+				MaxIdleConnections:   10,
+				MaxActiveConnections: 10,
+				ConnectTimeout:       500,
+				ReadTimeout:          500,
+				IdleKeepAlive:        30,
+				MaxKeepAlive:         0,
+				WaitForConnection:    false,
+			},
+		},
+		Log: logger.LogConfig{
 			Enable:     true,
-			Target:     "stdout",
+			Target:     "file",
 			Level:      "info",
-			Format:     "text",
+			Path:       "/tmp/redins.log",
+			Format:     "json",
 			TimeFormat: time.RFC3339,
 			Sentry: logger.SentryConfig{
 				Enable: false,
+				DSN:    "",
 			},
 			Syslog: logger.SyslogConfig{
-				Enable: false,
+				Enable:   false,
+				Protocol: "tcp",
+				Address:  "localhost:514",
 			},
 			Kafka: logger.KafkaConfig{
 				Enable:      false,
@@ -189,14 +178,44 @@ func LoadConfig(path string) (*RedinsConfig, error) {
 				BufferSize:  1000,
 			},
 		},
-		RateLimit: handler.RateLimiterConfig{
-			Enable:    false,
-			Rate:      60,
-			Burst:     10,
-			BlackList: []string{},
-			WhiteList: []string{},
+	},
+	ErrorLog: logger.LogConfig{
+		Enable:     true,
+		Target:     "stdout",
+		Level:      "info",
+		Path:       "/tmp/error.log",
+		Format:     "text",
+		TimeFormat: time.RFC3339,
+		Sentry: logger.SentryConfig{
+			Enable: false,
+			DSN:    "",
 		},
-	}
+		Syslog: logger.SyslogConfig{
+			Enable:   false,
+			Protocol: "tcp",
+			Address:  "locahost:514",
+		},
+		Kafka: logger.KafkaConfig{
+			Enable:      false,
+			Topic:       "redins",
+			Brokers:     []string{"127.0.0.1:9092"},
+			Format:      "json",
+			Compression: "none",
+			Timeout:     3000,
+			BufferSize:  1000,
+		},
+	},
+	RateLimit: handler.RateLimiterConfig{
+		Enable:    false,
+		Rate:      60,
+		Burst:     10,
+		BlackList: []string{},
+		WhiteList: []string{},
+	},
+}
+
+func LoadConfig(path string) (*RedinsConfig, error) {
+	config := redinsDefaultConfig
 	configFile, err := os.Open(path)
 	if err != nil {
 		log.Printf("[ERROR] cannot load file %s : %s", path, err)
@@ -531,12 +550,27 @@ func Verify(configFile string) {
 func main() {
 	configPtr := flag.String("c", "config.json", "path to config file")
 	verifyPtr := flag.Bool("t", false, "verify configuration")
+	generateConfigPtr := flag.String("g", "template-config.json", "generate template config file")
 
 	flag.Parse()
+	flagset := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
 
 	configFile = *configPtr
 	if *verifyPtr {
 		Verify(configFile)
+		return
+	}
+
+	if flagset["g"] {
+		data, err := jsoniter.MarshalIndent(redinsDefaultConfig, "", "  ")
+		if err != nil {
+			fmt.Println("cannot unmarshal template config : ", err)
+			return
+		}
+		if err = ioutil.WriteFile(*generateConfigPtr, data, 0644); err != nil {
+			fmt.Printf("cannot save template config to file %s : %s\n", *generateConfigPtr, err)
+		}
 		return
 	}
 
