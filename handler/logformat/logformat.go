@@ -29,9 +29,6 @@ func (f *CapnpRequestLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	}
 	requestLog.SetResponsecode(uint16(entry.Data["response_code"].(int)))
 	requestLog.SetProcesstime(uint16(entry.Data["process_time"].(int64)))
-	if err = requestLog.SetCache(entry.Data["cache"].(string)); err != nil {
-		return []byte{}, err
-	}
 
 	clientSubnet, ok := entry.Data["client_subnet"]
 	if ok {

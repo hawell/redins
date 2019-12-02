@@ -43,7 +43,7 @@ func splitSets(rrs []dns.RR) map[rrset][]dns.RR {
 	return nil
 }
 
-func Sign(rrs []dns.RR, qname string, record *Record) []dns.RR {
+func Sign(rrs []dns.RR, qname string, z *Zone) []dns.RR {
 	var res []dns.RR
 	sets := splitSets(rrs)
 	for _, set := range sets {
@@ -52,9 +52,9 @@ func Sign(rrs []dns.RR, qname string, record *Record) []dns.RR {
 		case dns.TypeRRSIG, dns.TypeOPT:
 			continue
 		case dns.TypeDNSKEY:
-			res = append(res, record.Zone.DnsKeySig)
+			res = append(res, z.DnsKeySig)
 		default:
-			if rrsig, err := sign(set, qname, record.Zone.ZSK, set[0].Header().Ttl); err == nil {
+			if rrsig, err := sign(set, qname, z.ZSK, set[0].Header().Ttl); err == nil {
 				res = append(res, rrsig)
 			}
 		}
@@ -64,7 +64,7 @@ func Sign(rrs []dns.RR, qname string, record *Record) []dns.RR {
 
 func sign(rrs []dns.RR, name string, key *ZoneKey, ttl uint32) (*dns.RRSIG, error) {
 	rrsig := &dns.RRSIG{
-		Hdr:        dns.RR_Header{name, dns.TypeRRSIG, dns.ClassINET, ttl, 0},
+		Hdr:        dns.RR_Header{Name: name, Rrtype: dns.TypeRRSIG, Class: dns.ClassINET, Ttl: ttl},
 		Inception:  key.KeyInception,
 		Expiration: key.KeyExpiration,
 		KeyTag:     key.DnsKey.KeyTag(),
@@ -93,7 +93,7 @@ func sign(rrs []dns.RR, name string, key *ZoneKey, ttl uint32) (*dns.RRSIG, erro
 
 func NSec(name string, zone *Zone) dns.RR {
 	nsec := &dns.NSEC{
-		Hdr:        dns.RR_Header{name, dns.TypeNSEC, dns.ClassINET, zone.Config.SOA.MinTtl, 0},
+		Hdr:        dns.RR_Header{Name: name, Rrtype: dns.TypeNSEC, Class: dns.ClassINET, Ttl: zone.Config.SOA.MinTtl},
 		NextDomain: "\\000." + name,
 		TypeBitMap: NSecTypes,
 	}

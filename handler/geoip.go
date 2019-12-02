@@ -15,9 +15,9 @@ type GeoIp struct {
 }
 
 type GeoIpConfig struct {
-	Enable    bool   `json:"enable,omitempty"`
-	CountryDB string `json:"country_db,omitempty"`
-	ASNDB     string `json:"asn_db,omitempty"`
+	Enable    bool   `json:"enable"`
+	CountryDB string `json:"country_db"`
+	ASNDB     string `json:"asn_db"`
 }
 
 func NewGeoIp(config *GeoIpConfig) *GeoIp {
@@ -39,7 +39,7 @@ func NewGeoIp(config *GeoIpConfig) *GeoIp {
 	return g
 }
 
-func (g *GeoIp) GetSameCountry(sourceIp net.IP, ips []IP_RR, logData map[string]interface{}) []IP_RR {
+func (g *GeoIp) GetSameCountry(sourceIp net.IP, ips []IP_RR) []IP_RR {
 	if !g.Enable || g.CountryDB == nil {
 		return ips
 	}
@@ -48,7 +48,6 @@ func (g *GeoIp) GetSameCountry(sourceIp net.IP, ips []IP_RR, logData map[string]
 		logger.Default.Error("getSameCountry failed")
 		return ips
 	}
-	logData["source_country"] = sourceCountry
 
 	var result []IP_RR
 	if sourceCountry != "" {
@@ -84,7 +83,7 @@ func (g *GeoIp) GetSameCountry(sourceIp net.IP, ips []IP_RR, logData map[string]
 	return ips
 }
 
-func (g *GeoIp) GetSameASN(sourceIp net.IP, ips []IP_RR, logData map[string]interface{}) []IP_RR {
+func (g *GeoIp) GetSameASN(sourceIp net.IP, ips []IP_RR) []IP_RR {
 	if !g.Enable || g.ASNDB == nil {
 		return ips
 	}
@@ -93,7 +92,6 @@ func (g *GeoIp) GetSameASN(sourceIp net.IP, ips []IP_RR, logData map[string]inte
 		logger.Default.Error("getSameASN failed")
 		return ips
 	}
-	logData["source_asn"] = sourceASN
 
 	var result []IP_RR
 	if sourceASN != 0 {
@@ -129,7 +127,7 @@ func (g *GeoIp) GetSameASN(sourceIp net.IP, ips []IP_RR, logData map[string]inte
 	return ips
 }
 
-func (g *GeoIp) GetMinimumDistance(sourceIp net.IP, ips []IP_RR, logData map[string]interface{}) []IP_RR {
+func (g *GeoIp) GetMinimumDistance(sourceIp net.IP, ips []IP_RR) []IP_RR {
 	if !g.Enable || g.CountryDB == nil {
 		return ips
 	}
@@ -193,12 +191,11 @@ func (g *GeoIp) GetGeoLocation(ip net.IP) (latitude float64, longitude float64, 
 		} `maxminddb:"country"`
 	}
 	logger.Default.Debugf("ip : %s", ip)
-	err = g.CountryDB.Lookup(ip, &record)
-	if err != nil {
+	if err := g.CountryDB.Lookup(ip, &record); err != nil {
 		logger.Default.Errorf("lookup failed : %s", err)
 		return 0, 0, "", err
 	}
-	g.CountryDB.Decode(record.Location.LongitudeOffset, &longitude)
+	_ = g.CountryDB.Decode(record.Location.LongitudeOffset, &longitude)
 	logger.Default.Debug("lat = ", record.Location.Latitude, " lang = ", longitude, " country = ", record.Country.ISOCode)
 	return record.Location.Latitude, longitude, record.Country.ISOCode, nil
 }

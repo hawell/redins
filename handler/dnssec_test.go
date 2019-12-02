@@ -3,7 +3,6 @@ package handler
 import (
 	"arvancloud/redins/test"
 	"fmt"
-	"github.com/coredns/coredns/request"
 	"github.com/hawell/logger"
 	"github.com/hawell/uperdis"
 	"github.com/miekg/dns"
@@ -12,22 +11,24 @@ import (
 	"testing"
 )
 
-var dnssecZone = string("dnssec_test.com.")
+var dnssecZone = "dnssec_test.com."
 
 var dnssecConfig = `{"soa":{"ttl":300, "minttl":100, "mbox":"hostmaster.dnssec_test.com.","ns":"ns1.dnssec_test.com.","refresh":44,"retry":55,"expire":66},"dnssec": true}`
 var dnssecEntries = [][]string{
 	{"@",
-		`{"ns":{"ttl":300,"records":[{"host":"a.dnssec_test.com."}]}}`,
+		`{"ns":{"ttl":300,"records":[{"host":"ns1.dnssec_test.com."},{"host":"ns2.dnssec_test.com."}]}}`,
 	},
 	{"x",
 		`{
             "a":{"ttl":300, "records":[{"ip":"1.2.3.4", "country":"ES"},{"ip":"5.6.7.8", "country":""}]},
             "aaaa":{"ttl":300, "records":[{"ip":"::1"}]},
             "txt":{"ttl":300, "records":[{"text":"foo"},{"text":"bar"}]},
-            "ns":{"ttl":300, "records":[{"host":"ns1.dnssec_test.com."},{"host":"ns2.dnssec_test.com."}]},
             "mx":{"ttl":300, "records":[{"host":"mx1.dnssec_test.com.", "preference":10},{"host":"mx2.dnssec_test.com.", "preference":10}]},
             "srv":{"ttl":300, "records":[{"target":"sip.dnssec_test.com.","port":555,"priority":10,"weight":100}]}
-            }`,
+        }`,
+	},
+	{"y",
+		`{"ns":{"ttl":300, "records":[{"host":"ns1.dnssec_test.com."},{"host":"ns2.dnssec_test.com."}]}}`,
 	},
 	{"*",
 		`{"txt":{"ttl":300,"records":[{"text":"wildcard text"}]}}`,
@@ -61,8 +62,7 @@ var dnssecEntries = [][]string{
 	},
 }
 
-var zskPriv = string(
-	`Private-key-format: v1.3
+var zskPriv = `Private-key-format: v1.3
 Algorithm: 5 (RSASHA1)
 Modulus: oqwXm/EF8q6p5Rrj66Bbft+0Vk7Kj6TuvZp4nNl0htiT/8/92kIcri5gbxnV2v+p6jXYQI1Vx/vqP5cB0kPzjUQuJFVpm14fxOp89D6N0fPXR7xJ+SHs5nigHBIJdaP5
 PublicExponent: AQAB
@@ -75,17 +75,16 @@ Coefficient: GhzOVUQcUJkvbYc9/+9MZngzDCeoetXDR6IILqG0/Rmt7FHWwSD7nOSoUUE5GslF
 Created: 20180717134704
 Publish: 20180717134704
 Activate: 20180717134704
-`)
+`
 
-var zskPub = string("dnssec_test.com. IN DNSKEY 256 3 5 AwEAAaKsF5vxBfKuqeUa4+ugW37ftFZOyo+k7r2aeJzZdIbYk//P/dpC HK4uYG8Z1dr/qeo12ECNVcf76j+XAdJD841ELiRVaZteH8TqfPQ+jdHz 10e8Sfkh7OZ4oBwSCXWj+Q==")
+var zskPub = "dnssec_test.com. IN DNSKEY 256 3 5 AwEAAaKsF5vxBfKuqeUa4+ugW37ftFZOyo+k7r2aeJzZdIbYk//P/dpC HK4uYG8Z1dr/qeo12ECNVcf76j+XAdJD841ELiRVaZteH8TqfPQ+jdHz 10e8Sfkh7OZ4oBwSCXWj+Q=="
 
 var dnskeyQuery = test.Case{
 	Do:    true,
 	Qname: "dnssec_test.com", Qtype: dns.TypeDNSKEY,
 }
 
-var kskPriv = string(
-	`Private-key-format: v1.3
+var kskPriv = `Private-key-format: v1.3
 Algorithm: 5 (RSASHA1)
 Modulus: 5WuOIP3GHID5Qmed6L+2ehBCkusTAXNv9uUfpzzTJHsA+bBesZSFsRNzMAV2drM7fApcL5IgNqrhb5twxu1/+cZj2Ld3PALbkENzn/erTl4A4uQdSWdkj8KnaLiJQPaT
 PublicExponent: AQAB
@@ -98,9 +97,9 @@ Coefficient: QCGY0yr+kkmOZfUoL9YCCgau/xjyEPRZgiGTfIy0PtGGMDKfUswJ+1KWI9Jue3E5
 Created: 20190518113600
 Publish: 20190518113600
 Activate: 20190518113600
-`)
+`
 
-var kskPub = string("dnssec_test.com. IN DNSKEY 257 3 5 AwEAAeVrjiD9xhyA+UJnnei/tnoQQpLrEwFzb/blH6c80yR7APmwXrGU hbETczAFdnazO3wKXC+SIDaq4W+bcMbtf/nGY9i3dzwC25BDc5/3q05e AOLkHUlnZI/Cp2i4iUD2kw==")
+var kskPub = "dnssec_test.com. IN DNSKEY 257 3 5 AwEAAeVrjiD9xhyA+UJnnei/tnoQQpLrEwFzb/blH6c80yR7APmwXrGU hbETczAFdnazO3wKXC+SIDaq4W+bcMbtf/nGY9i3dzwC25BDc5/3q05e AOLkHUlnZI/Cp2i4iUD2kw=="
 
 var dnssecTestCases = []test.Case{
 	{
@@ -109,6 +108,14 @@ var dnssecTestCases = []test.Case{
 			test.DNSKEY("dnssec_test.com.	3600	IN	DNSKEY	256 3 5 AwEAAaKsF5vxBfKuqeUa4+ugW37ftFZOyo+k7r2aeJzZdIbYk//P/dpCHK4uYG8Z1dr/qeo12ECNVcf76j+XAdJD841ELiRVaZteH8TqfPQ+jdHz10e8Sfkh7OZ4oBwSCXWj+Q=="),
 			test.DNSKEY("dnssec_test.com.	3600	IN	DNSKEY	257 3 5 AwEAAeVrjiD9xhyA+UJnnei/tnoQQpLrEwFzb/blH6c80yR7APmwXrGUhbETczAFdnazO3wKXC+SIDaq4W+bcMbtf/nGY9i3dzwC25BDc5/3q05eAOLkHUlnZI/Cp2i4iUD2kw=="),
 			test.RRSIG("dnssec_test.com.	3600	IN	RRSIG	DNSKEY 5 2 3600 20190527081109 20190519051109 37456 dnssec_test.com. oVwtVEf9eOkcuSJlsH0OSBUvLOxgKM1pIAe7v717oRyCoyC+FIG5uGsdrZWhgklh/fpEmRdJQ+nHXKWT/son8zvxAoskuIIp49wwgvcS400IoHiyjIY0BHNTFPvsPdy0"),
+		},
+		Do: true,
+	},
+	{
+		Qname: "x.dnssec_test.com.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.A("x.dnssec_test.com. 300 IN A 1.2.3.4"),
+			test.A("x.dnssec_test.com. 300 IN A 5.6.7.8"),
 		},
 	},
 	{
@@ -149,11 +156,11 @@ var dnssecTestCases = []test.Case{
 	},
 	// NS Test
 	{
-		Qname: "x.dnssec_test.com.", Qtype: dns.TypeNS,
+		Qname: "dnssec_test.com.", Qtype: dns.TypeNS,
 		Answer: []dns.RR{
-			test.NS("x.dnssec_test.com. 300 IN NS ns1.dnssec_test.com."),
-			test.NS("x.dnssec_test.com. 300 IN NS ns2.dnssec_test.com."),
-			test.RRSIG("x.dnssec_test.com.	300	IN	RRSIG	NS 5 3 300 20180726104727 20180718074727 22548 dnssec_test.com. NTYiqJBR8hFjYQcHeuUUWH2zIEqpF5xfFeHBb24icTbd5kg7VU9QHkzc/odnAFu80SfDJVnxX9OTV7re8Epp06CBT7m8VpUUv6+qnn6ma2qukWa8wyvFPg/PXJLA8cpG"),
+			test.NS("dnssec_test.com. 300 IN NS ns1.dnssec_test.com."),
+			test.NS("dnssec_test.com. 300 IN NS ns2.dnssec_test.com."),
+			test.RRSIG("dnssec_test.com.	300	IN	RRSIG	NS 5 2 300 20191122140218 20191114110218 22548 dnssec_test.com. DK9giOXPadNyDfFtsPjEd9JpWGIeCyIOgDDwzvgsYc/k/Q5blgtWBNxJ Fk0aPqj6M15RFTig2nA3uEJpEJx7OAj5zzSSTqyPozT/qrmPMWdxJcuK yaJ+CH+Ws9wJsM3S"),
 		},
 		Do: true,
 		Extra: []dns.RR{
@@ -261,19 +268,26 @@ var dnssecTestCases = []test.Case{
 	},
 }
 
-var dnssecTestConfig = HandlerConfig{
+var dnssecTestConfig = DnsRequestHandlerConfig{
 	MaxTtl:       300,
 	CacheTimeout: 60,
 	ZoneReload:   600,
 	Redis: uperdis.RedisConfig{
-		Ip:             "redis",
-		Port:           6379,
-		DB:             0,
-		Password:       "",
-		Prefix:         "test_",
-		Suffix:         "_test",
-		ConnectTimeout: 0,
-		ReadTimeout:    0,
+		Address:  "redis:6379",
+		Net:      "tcp",
+		DB:       0,
+		Password: "",
+		Prefix:   "test_",
+		Suffix:   "_test",
+		Connection: uperdis.RedisConnectionConfig{
+			MaxIdleConnections:   10,
+			MaxActiveConnections: 10,
+			ConnectTimeout:       500,
+			ReadTimeout:          500,
+			IdleKeepAlive:        30,
+			MaxKeepAlive:         0,
+			WaitForConnection:    true,
+		},
 	},
 	Log: logger.LogConfig{
 		Enable: false,
@@ -297,7 +311,9 @@ func TestDNSSEC(t *testing.T) {
 
 	h := NewHandler(&dnssecTestConfig)
 
-	h.Redis.Del(dnssecZone)
+	if err := h.Redis.Del(dnssecZone); err != nil {
+		fmt.Println(err)
+	}
 	for _, cmd := range dnssecEntries {
 		err := h.Redis.HSet("redins:zones:"+dnssecZone, cmd[0], cmd[1])
 		if err != nil {
@@ -305,12 +321,24 @@ func TestDNSSEC(t *testing.T) {
 			t.Fail()
 		}
 	}
-	h.Redis.Set("redins:zones:"+dnssecZone+":config", dnssecConfig)
-	h.Redis.Set("redins:zones:"+dnssecZone+":zsk:pub", zskPub)
-	h.Redis.Set("redins:zones:"+dnssecZone+":zsk:priv", zskPriv)
-	h.Redis.Set("redins:zones:"+dnssecZone+":ksk:pub", kskPub)
-	h.Redis.Set("redins:zones:"+dnssecZone+":ksk:priv", kskPriv)
-	h.Redis.SAdd("redins:zones", dnssecZone)
+	if err := h.Redis.Set("redins:zones:"+dnssecZone+":config", dnssecConfig); err != nil {
+		fmt.Println(err)
+	}
+	if err := h.Redis.Set("redins:zones:"+dnssecZone+":zsk:pub", zskPub); err != nil {
+		fmt.Println(err)
+	}
+	if err := h.Redis.Set("redins:zones:"+dnssecZone+":zsk:priv", zskPriv); err != nil {
+		fmt.Println(err)
+	}
+	if err := h.Redis.Set("redins:zones:"+dnssecZone+":ksk:pub", kskPub); err != nil {
+		fmt.Println(err)
+	}
+	if err := h.Redis.Set("redins:zones:"+dnssecZone+":ksk:priv", kskPriv); err != nil {
+		fmt.Println(err)
+	}
+	if err := h.Redis.SAdd("redins:zones", dnssecZone); err != nil {
+		fmt.Println(err)
+	}
 	h.LoadZones()
 
 	var zsk dns.RR
@@ -318,10 +346,10 @@ func TestDNSSEC(t *testing.T) {
 	{
 		r := dnskeyQuery.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		h.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		h.HandleRequest(state)
 		resp := w.Msg
-		fmt.Println(resp.Answer)
+		// fmt.Println(resp.Answer)
 		for _, answer := range resp.Answer {
 			if key, ok := answer.(*dns.DNSKEY); ok {
 				if key.Flags == 256 {
@@ -336,14 +364,18 @@ func TestDNSSEC(t *testing.T) {
 	// fmt.Println("ksk is ", ksk.String())
 
 	for i, tc0 := range dnssecTestCases {
+		// fmt.Println(i)
 		tc := test.Case{
 			Qname: dnssecTestCases[i].Qname, Qtype: dnssecTestCases[i].Qtype,
 			Answer: make([]dns.RR, len(dnssecTestCases[i].Answer)),
 			Ns:     make([]dns.RR, len(dnssecTestCases[i].Ns)),
-			Do:     true,
+			Do:     dnssecTestCases[i].Do,
 			Extra: []dns.RR{
 				test.OPT(4096, true),
 			},
+		}
+		if !tc.Do {
+			tc.Extra = []dns.RR{}
 		}
 		copy(tc.Answer, dnssecTestCases[i].Answer)
 		copy(tc.Ns, dnssecTestCases[i].Ns)
@@ -352,8 +384,8 @@ func TestDNSSEC(t *testing.T) {
 
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		h.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		h.HandleRequest(state)
 		resp := w.Msg
 		for _, rrs := range [][]dns.RR{tc0.Answer, tc0.Ns, resp.Answer, resp.Ns} {
 			s := 0
@@ -363,7 +395,7 @@ func TestDNSSEC(t *testing.T) {
 					break
 				}
 				if rrsig, ok := rrs[e].(*dns.RRSIG); ok {
-					//fmt.Printf("s = %d, e = %d\n", s, e)
+					// fmt.Printf("s = %d, e = %d\n", s, e)
 					if tc.Qtype == dns.TypeDNSKEY {
 						if rrsig.Verify(ksk.(*dns.DNSKEY), rrs[s:e]) != nil {
 							fmt.Println("fail")
@@ -389,4 +421,5 @@ func TestDNSSEC(t *testing.T) {
 		}
 		//fmt.Println("xxxx")
 	}
+
 }

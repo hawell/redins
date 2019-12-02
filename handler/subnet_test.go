@@ -2,7 +2,6 @@ package handler
 
 import (
 	"arvancloud/redins/test"
-	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 	"log"
 	"net"
@@ -33,14 +32,14 @@ func TestSubnet(t *testing.T) {
 		t.Fail()
 	}
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := request.Request{W: w, Req: r}
+	state := NewRequestContext(w, r)
 
-	subnet := GetSourceSubnet(&state)
+	subnet := state.SourceSubnet
 	if subnet != sa+"/32/0" {
 		log.Printf("subnet = %s should be %s\n", subnet, sa)
 		t.Fail()
 	}
-	address := GetSourceIp(&state)
+	address := state.SourceIp
 	if address.String() != sa {
 		log.Printf("address = %s should be %s\n", address.String(), sa)
 		t.Fail()

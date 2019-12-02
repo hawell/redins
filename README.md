@@ -30,7 +30,6 @@
         - [CAA](#caa)
         - [PTR](#ptr)
         - [TLSA](#tlsa)
-        - [SOA](#soa)
     - [example](#zone-example)
     
 
@@ -42,36 +41,45 @@
 dns listening server configuration
 
 ~~~json
-"server": {
-  "ip": "127.0.0.1",
-  "port": 1053,
-  "protocol": "udp"
+{
+  "server": {
+    "ip": "127.0.0.1",
+    "port": 1053,
+    "protocol": "udp"
+  }
 }
 ~~~
 
-* ip : ip address to bind, default: 127.0.0.1
-* port : port number to bind, default: 1053
-* protocol : protocol; can be tcp or udp, default: udp
+* `ip` : ip address to bind, default: 127.0.0.1
+* `port` : port number to bind, default: 1053
+* `protocol` : protocol; can be tcp or udp, default: udp
 
 ### handler
 dns query handler configuration
 
 ~~~json
+{
 "handler": {
     "max_ttl": 300,
     "cache_timeout": 60,
     "zone_reload": 600,
     "log_source_location": false,
-    "upstream_fallback": false,
     "redis": {
-        "ip": "127.0.0.1",
-        "port": 6379,
+        "address": "127.0.0.1:6379",
+        "net": "tcp",
         "password": "",
         "db": 0,
         "prefix": "test_",
         "suffix": "_test",
-        "connect_timeout": 0,
-        "read_timeout": 0
+        "connection": {
+          "max_idle_connections": 10,
+          "max_active_connections": 10,
+          "connect_timeout": 500,
+          "read_timeout": 500,
+          "idle_keep_alive": 30,
+          "max_keep_alive": 0,
+          "wait_for_connection": true
+        }
     },
     "log": {
     "enable": true,
@@ -86,14 +94,12 @@ dns query handler configuration
         "update_interval": 600,
         "check_interval": 600,
         "redis": {
-            "ip": "127.0.0.1",
-            "port": 6379,
+            "address": "127.0.0.1:6379",
+            "net":  "tcp",
             "db": 0,
             "password": "",
             "prefix": "healthcheck_",
-            "suffix": "_healthcheck",
-            "connect_timeout": 0,
-            "read_timeout": 0
+            "suffix": "_healthcheck"
         },
         "log": {
             "enable": true,
@@ -114,21 +120,23 @@ dns query handler configuration
         "protocol": "udp",
         "timeout": 400
     }]
+  }
 }
 ~~~
 
-* max_ttl : max ttl in seconds, default: 3600
-* cache_timeout : time in seconds before cached responses expire
-* zone_reload : time in seconds before zone data is reloaded from redis
-* log_source_location : enable logging source location of every request
-* upstream_fallback : enable using upstream for querying non-authoritative requests
-* redis : redis configuration to use for handler
-* log : log configuration to use for handler
+* `max_ttl` : max ttl in seconds, default: 3600
+* `cache_timeout` : time in seconds before cached responses expire
+* `zone_reload` : time in seconds before zone data is reloaded from redis
+* `log_source_location` : enable logging source location of every request
+* `upstream_fallback` : enable using upstream for querying non-authoritative requests
+* `redis` : redis configuration to use for handler
+* `log` : log configuration to use for handler
 
 ### healthcheck
 healthcheck configuration
 
 ~~~json
+{
   "healthcheck": {
     "enable": true,
     "max_requests": 10,
@@ -136,14 +144,12 @@ healthcheck configuration
     "update_interval": 600,
     "check_interval": 600,
     "redis": {
-      "ip": "127.0.0.1",
-      "port": 6379,
+      "address": "127.0.0.1:6379",
+      "net": "tcp",
       "db": 0,
       "password": "",
       "prefix": "healthcheck_",
-      "suffix": "_healthcheck",
-      "connect_timeout": 0,
-      "read_timeout": 0
+      "suffix": "_healthcheck"
     },
     "log": {
       "enable": true,
@@ -153,57 +159,64 @@ healthcheck configuration
       "path": "/tmp/healthcheck.log"
     }
   }
+}
 ~~~
 
-* enable : enable/disable healthcheck, default: disable
-* max_requests : maximum number of simultanous healthcheck requests, deafult: 10
-* max_pending_requests : maximum number of requests to queue, default: 100
-* update_interval : time between checking for updated data from redis in seconds, default: 300
-* check_interval : time between two healthcheck requests in seconds, default: 600
-* redis : redis configuration to use for healthcheck stats
-* log : log configuration to use for healthcheck logs
+* `enable` : enable/disable healthcheck, default: disable
+* `max_requests` : maximum number of simultanous healthcheck requests, deafult: 10
+* `max_pending_requests` : maximum number of requests to queue, default: 100
+* `update_interval` : time between checking for updated data from redis in seconds, default: 300
+* `check_interval` : time between two healthcheck requests in seconds, default: 600
+* `redis` : redis configuration to use for healthcheck stats
+* `log` : log configuration to use for healthcheck logs
 
 ### geoip
 geoip configuration
 
 ~~~json
+{
   "geoip": {
     "enable": true,
     "country_db": "geoCity.mmdb",
     "asn_db": "geoIsp.mmdb"
   }
+}
 ~~~
 
-* enable : enable/disable geoip calculations, default: disable
-* country_db : maxminddb file for country codes to use, default: geoCity.mmdb
-* asn_db : maxminddb file for autonomous system numbers to use, default: geoIsp.mmdb
+* `enable` : enable/disable geoip calculations, default: disable
+* `country_db` : maxminddb file for country codes to use, default: geoCity.mmdb
+* `asn_db` : maxminddb file for autonomous system numbers to use, default: geoIsp.mmdb
 
 ### upstream
 
 ~~~json
-"upstream": [{
+{
+  "upstream": [{
     "ip": "1.1.1.1",
     "port": 53,
     "protocol": "udp",
     "timeout": 400
-}],
+  }]
+}
 ~~~
 
-* ip : upstream ip address, default: 1.1.1.1
-* port : upstream port number, deafult: 53
-* protocol : upstream protocol, default : udp
-* timeout : request timeout in milliseconds, default: 400
+* `ip` : upstream ip address, default: 1.1.1.1
+* `port` : upstream port number, deafult: 53
+* `protocol` : upstream protocol, default : udp
+* `timeout` : request timeout in milliseconds, default: 400
 
 ### error_log
 log configuration for error, debug, ... messages
 
 ~~~json
-"log": {
-  "enable": true,
-  "level": "info",
-  "target": "file",
-  "format": "json",
-  "path": "/tmp/redins.log"
+{
+  "log": {
+    "enable": true,
+    "level": "info",
+    "target": "file",
+    "format": "json",
+    "path": "/tmp/redins.log"
+  }
 }
 ~~~
 
@@ -211,65 +224,92 @@ log configuration for error, debug, ... messages
 redis configurations
 
 ~~~json
-"redis": {
-  "ip": "127.0.0.1",
-  "port": 6379,
-  "db": 0,
-  "password": "",
-  "prefix": "test_",
-  "suffix": "_test",
-  "connect_timeout": 0,
-  "read_timeout": 0
-},
+{
+  "redis": {
+    "address": "127.0.0.1:6379",
+    "net": "tcp",
+    "db": 0,
+    "password": "",
+    "prefix": "test_",
+    "suffix": "_test",
+    "connection": {
+      "max_idle_connections": 10,
+      "max_active_connections": 10,
+      "connect_timeout": 500,
+      "read_timeout": 500,
+      "idle_keep_alive": 30,
+      "max_keep_alive": 0,
+      "wait_for_connection": false
+    },
+    "connect_timeout": 0,
+    "read_timeout": 0
+  }
+}
 ~~~
 
-* ip : redis server ip, default: 127.0.0.1
-* port : redis server port, deafult: 6379
-* db : redis database, default: 0
-* password : redis password, deafult: ""
-* prefix : limit redis keys to those prefixed with this string
-* suffix : limit redis keys to those suffixed with this string
-* connect_timeout : time to wait for connecting to redis server in milliseconds, deafult: 0 
-* read_timeout : time to wait for redis query results in milliseconds, default: 0
+* `address` : redis address: "ip:port" for "tcp" and "/path/to/unix/socket.sock" for "unix", default: "127.0.0.1:6379"
+* `net`: connection protocol: "tcp" or "unix", default: "tcp"
+* `db`: redis database to use, default: 0
+* `password`: redis AUTH string, default is empty
+* `prefix`, `suffix`: strings to prepend/append to all redis queries, default is empty 
+* `max_idle_connections`: maximum number of idle connections that pool keeps, default: 10
+* `max_active_connections`: maximum number of active connections, default: 10
+* `connect_timeout`: time to wait for connecting to redis server in milliseconds, 0 for no timeout; default: 500
+* `read_timeout`: time to wait for redis query results in milliseconds, 0 for no timeout; default: 500
+* `idle_keep_alive`: time to keep idle connections in seconds, 0 for unlimited; default: 30
+* `max_keep_alive`: maximum time to keep a connection in seconds, 0 for unlimited; default: 0
+* `wait_for_connection`: whether or not wait for a connection to be available if connection pool is full, default: false
 
 ### log
 log configuration
 
 ~~~json
-"log": {
-  "enable": true,
-  "level": "info",
-  "target": "file",
-  "format": "json",
-  "time_format": "2006-01-02T15:04:05.999999-07:00",
-  "path": "/tmp/redins.log",
-  "sentry": {
-    "enable": false,
-    "dsn": ""
-  },
-  "syslog": {
-    "enable": false,
-    "protocol": "udp",
-    "address": "localhost:514"
-  },
-  "kafka": {
-    "enable": false,
-    "brokers": ["127.0.0.1:9092"],
-    "topic": "redins",
-    "format": "capnp_request"
+{
+  "log": {
+    "enable": true,
+    "level": "info",
+    "target": "file",
+    "format": "json",
+    "time_format": "2006-01-02T15:04:05.999999-07:00",
+    "path": "/tmp/redins.log",
+    "sentry": {
+      "enable": false,
+      "dsn": ""
+    },
+    "syslog": {
+      "enable": false,
+      "protocol": "udp",
+      "address": "localhost:514"
+    },
+    "kafka": {
+      "enable": false,
+      "brokers": ["127.0.0.1:9092"],
+      "topic": "redins",
+      "format": "capnp_request",
+      "compression": "none",
+      "timeout": 3000,
+      "buffer_size": 1000
+    }
   }
 }
 ~~~
 
-* enable : enable/disable this log resource, default: disable
-* level : log level, can be debug, info, warning, error, default: info
-* target : log target, can be stdout, stderr, file, default: stdout
-* format : log format, can be text, json, default: text. an extra log format ("capnp_request") is also available for request logs
-* time_format : timestamp format using example-based layout, reference time is Mon Jan 2 15:04:05 MST 2006
-* path : log output file path
-* sentry : sentry hook configurations
-* syslog : syslog hook configurations
-* kafka : kafka hook configurations
+* `enable` : enable/disable this log resource, default: disable
+* `level` : log level, can be debug, info, warning, error, default: info
+* `target` : log target, can be stdout, stderr, file, udp default: stdout
+* `format` : log format, can be text, json, default: text. an extra log format ("capnp_request") is also available for request logs
+* `time_format` : timestamp format using example-based layout, reference time is Mon Jan 2 15:04:05 MST 2006
+* `path` : log output file path, net address if target is udp
+* `sentry` : sentry hook configurations
+* `syslog` : syslog hook configurations
+* `kafka` : kafka hook configurations
+    * `enable`: enable/disable kafka hook, default: disable
+    * `brokers`: list of brokers in "ip:port" format, default : "127.0.0.1:9092"
+    * `topic`: name of kafka topic, default : "redins"
+    * `format`: message format, default: "json"
+    * `compression`: compression format : "snappy", "gzip", "lz4", "zstd", "none", default: "none"
+    * `timeout`: kafka operation timeout (dial, read, write) in milliseconds, default : 3000
+    * `buffer_size`: kafka producer buffer size, default : 1000
 
 ### rate limit 
 rate limit connfiguration
@@ -286,11 +326,11 @@ rate limit connfiguration
 }
 ~~~
 
-* enable : enable/disable rate limit
-* rate : maximum allowed request per minute
-* burst : number of burst requests
-* blacklist : list of ips to refuse all request
-* whitelist : list of ips to bypass rate limit
+* `enable` : enable/disable rate limit
+* `rate` : maximum allowed request per minute
+* `burst` : number of burst requests
+* `blacklist` : list of ips to refuse all request
+* `whitelist` : list of ips to bypass rate limit
 
 ### example
 sample config:
@@ -307,15 +347,21 @@ sample config:
     "cache_timeout": 60,
     "zone_reload": 600,
     "log_source_location": false,
-    "upstream_fallback": false,
     "redis": {
       "ip": "127.0.0.1",
       "port": 6379,
       "password": "",
       "prefix": "test_",
       "suffix": "_test",
-      "connect_timeout": 0,
-      "read_timeout": 0
+      "connection": {
+        "max_idle_connections": 10,
+        "max_active_connections": 10,
+        "connect_timeout": 500,
+        "read_timeout": 500,
+        "idle_keep_alive": 30,
+        "max_keep_alive": 60,
+        "wait_for_connection": false
+      }
     },
     "log": {
       "enable": true,
@@ -346,8 +392,15 @@ sample config:
         "password": "",
         "prefix": "healthcheck_",
         "suffix": "_healthcheck",
-        "connect_timeout": 0,
-        "read_timeout": 0
+        "connection": {
+          "max_idle_connections": 10,
+          "max_active_connections": 10,
+          "connect_timeout": 500,
+          "read_timeout": 500,
+          "idle_keep_alive": 30,
+          "max_keep_alive": 60,
+          "wait_for_connection": false
+        }
       },
       "log": {
         "enable": true,
@@ -492,18 +545,18 @@ redis-cli>HGETALL example.com.
 ~~~
 
 `filter` : filtering mode:
-* count : return single or multiple results. values : "multi", "single"
-* order : order of result. values : "none" - saved order, "weighted" - weighted shuffle, "rr" - uniform shuffle
-* geo_filter : geo filter. values : "country" - same country, "location" - nearest destination, "asn" - same isp, "asn+country" same isp then same country, "none"
+* `count` : return single or multiple results. values : "multi", "single"
+* `order` : order of result. values : "none" - saved order, "weighted" - weighted shuffle, "rr" - uniform shuffle
+* `geo_filter` : geo filter. values : "country" - same country, "location" - nearest destination, "asn" - same isp, "asn+country" same isp then same country, "none"
 
 `health_check` : health check configuration
-* enable : enable/disable healthcheck for this host:ip
-* uri : uri to use in healthcheck request
-* port : port to use in healthcheck request
-* protocol : protocol to use in healthcheck request, can be http or https
-* up_count : number of successful healthcheck requests to consider an ip valid
-* down_count : number of unsuccessful healthcheck requests to consider an ip invalid
-* timeout time : to wait for a healthcheck response
+* `enable` : enable/disable healthcheck for this host:ip
+* `uri` : uri to use in healthcheck request
+* `port` : port to use in healthcheck request
+* `protocol` : protocol to use in healthcheck request, can be http or https
+* `up_count` : number of successful healthcheck requests to consider an ip valid
+* `down_count` : number of unsuccessful healthcheck requests to consider an ip invalid
+* `timeout time` : to wait for a healthcheck response
 
 #### ANAME
 
@@ -657,9 +710,9 @@ redis-cli>HGETALL example.com.
 }
 ~~~
 
-`cname_flattening`: enable/disable cname flattening, default: false
-`dnssec`: enable/disable dnssec, default: false
-`domain_id`: unique domain id for logging, optional
+* `cname_flattening`: enable/disable cname flattening, default: false
+* `dnssec`: enable/disable dnssec, default: false
+* `domain_id`: unique domain id for logging, optional
 
 ### zone example
 

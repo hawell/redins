@@ -2,7 +2,6 @@ package handler
 
 import (
 	"arvancloud/redins/test"
-	"github.com/coredns/coredns/request"
 	"github.com/hawell/logger"
 	"github.com/miekg/dns"
 	"log"
@@ -28,27 +27,27 @@ var benchEntries = [][]string{
 	},
 }
 
-var h *DnsRequestHandler
+var benchTestHandler *DnsRequestHandler
 
 func TestMain(m *testing.M) {
 	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 
-	h = NewHandler(&handlerTestConfig)
-	err := h.Redis.Del("*")
+	benchTestHandler = NewHandler(&defaultConfig)
+	err := benchTestHandler.Redis.Del("*")
 	log.Println(err)
-	err = h.Redis.SAdd("redins:zones", benchZone)
+	err = benchTestHandler.Redis.SAdd("redins:zones", benchZone)
 	log.Println(err)
-	err = h.Redis.Set("redins:zones:"+benchZone+":config", "{\"cname_flattening\": false}")
+	err = benchTestHandler.Redis.Set("redins:zones:"+benchZone+":config", "{\"cname_flattening\": false}")
 	log.Println(err)
 	for _, cmd := range benchEntries {
-		err := h.Redis.HSet("redins:zones:"+benchZone, cmd[0], cmd[1])
+		err := benchTestHandler.Redis.HSet("redins:zones:"+benchZone, cmd[0], cmd[1])
 		if err != nil {
 			log.Printf("[ERROR] cannot connect to redis: %s", err)
 			return
 		}
 	}
 
-	h.LoadZones()
+	benchTestHandler.LoadZones()
 	os.Exit(m.Run())
 }
 
@@ -62,8 +61,8 @@ func BenchmarkA(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		h.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		benchTestHandler.HandleRequest(state)
 
 		resp = w.Msg
 	}
@@ -78,8 +77,8 @@ func BenchmarkAAAA(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		h.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		benchTestHandler.HandleRequest(state)
 
 		resp = w.Msg
 	}
@@ -94,8 +93,8 @@ func BenchmarkCNAME(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		h.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		benchTestHandler.HandleRequest(state)
 
 		resp = w.Msg
 	}
@@ -110,8 +109,8 @@ func BenchmarkNXDomain(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		h.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		benchTestHandler.HandleRequest(state)
 
 		resp = w.Msg
 	}
@@ -126,8 +125,8 @@ func BenchmarkNotAuth(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		r := tc.Msg()
 		w := test.NewRecorder(&test.ResponseWriter{})
-		state := request.Request{W: w, Req: r}
-		h.HandleRequest(&state)
+		state := NewRequestContext(w, r)
+		benchTestHandler.HandleRequest(state)
 
 		resp = w.Msg
 	}

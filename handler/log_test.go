@@ -3,8 +3,8 @@ package handler
 import (
 	"arvancloud/redins/handler/logformat"
 	"arvancloud/redins/test"
+	"bytes"
 	"fmt"
-	"github.com/coredns/coredns/request"
 	"github.com/hawell/logger"
 	"github.com/hawell/uperdis"
 	jsoniter "github.com/json-iterator/go"
@@ -18,20 +18,18 @@ import (
 	capnp "zombiezen.com/go/capnproto2"
 )
 
-var logTestConfig = HandlerConfig{
+var logTestConfig = DnsRequestHandlerConfig{
 	MaxTtl:            300,
 	CacheTimeout:      60,
 	ZoneReload:        600,
 	LogSourceLocation: true,
 	Redis: uperdis.RedisConfig{
-		Ip:             "redis",
-		Port:           6379,
-		DB:             0,
-		Password:       "",
-		Prefix:         "test_",
-		Suffix:         "_test",
-		ConnectTimeout: 0,
-		ReadTimeout:    0,
+		Address:  "redis:6379",
+		Net:      "tcp",
+		DB:       0,
+		Password: "",
+		Prefix:   "test_",
+		Suffix:   "_test",
 	},
 	Log: logger.LogConfig{
 		Enable: true,
@@ -97,11 +95,11 @@ func TestJsonLog(t *testing.T) {
 	}
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := request.Request{W: w, Req: r}
-	h.HandleRequest(&state)
+	state := NewRequestContext(w, r)
+	h.HandleRequest(state)
+	time.Sleep(time.Millisecond * 100)
 	b, _ := ioutil.ReadFile("/tmp/test.log")
 	m1 := map[string]interface{}{
-		"cache":         "MISS",
 		"client_subnet": "",
 		"domain_uuid":   "d5cb15ec-cbfa-11e9-8ea5-9baaa1851180",
 		"level":         "info",
@@ -147,9 +145,10 @@ func TestCapnpLog(t *testing.T) {
 	}
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := request.Request{W: w, Req: r}
-	h.HandleRequest(&state)
-	h.HandleRequest(&state)
+	state := NewRequestContext(w, r)
+	h.HandleRequest(state)
+	h.HandleRequest(state)
+	time.Sleep(time.Millisecond * 100)
 	logFile, err := os.OpenFile("/tmp/test.log", os.O_RDONLY, 0666)
 	if err != nil {
 		fmt.Println(err)
@@ -193,8 +192,9 @@ func TestCapnpLogNotAuth(t *testing.T) {
 	}
 	r := tc.Msg()
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := request.Request{W: w, Req: r}
-	h.HandleRequest(&state)
+	state := NewRequestContext(w, r)
+	h.HandleRequest(state)
+	time.Sleep(time.Millisecond * 100)
 	logFile, err := os.OpenFile("/tmp/test.log", os.O_RDONLY, 0666)
 	if err != nil {
 		fmt.Println(err)
@@ -220,7 +220,7 @@ func TestCapnpLogNotAuth(t *testing.T) {
 
 func TestKafkaCapnpLog(t *testing.T) {
 	t.Skip("skip kafka test")
-	
+
 	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 	os.Remove("/tmp/test.log")
 
@@ -258,7 +258,80 @@ func TestKafkaCapnpLog(t *testing.T) {
 	r := tc.Msg()
 	r.Extra = append(r.Extra, opt)
 	w := test.NewRecorder(&test.ResponseWriter{})
-	state := request.Request{W: w, Req: r}
-	h.HandleRequest(&state)
+	state := NewRequestContext(w, r)
+	h.HandleRequest(state)
 	time.Sleep(time.Second)
+}
+
+func TestUdpCapnpLog(t *testing.T) {
+	go func() {
+		pc, err := net.ListenPacket("udp", "localhost:9090")
+		if err != nil {
+			fmt.Println(err)
+			t.Fail()
+			return
+		}
+		for i := 0; i < 2; i++ {
+			buffer := make([]byte, 1024)
+			n, _, err := pc.ReadFrom(buffer)
+			fmt.Println("n = ", n)
+			if err != nil {
+				fmt.Println(err)
+				t.Fail()
+				return
+			}
+			r := bytes.NewReader(buffer)
+			decoder := capnp.NewDecoder(r)
+
+			msg, err := decoder.Decode()
+			if err != nil {
+				fmt.Println(err)
+				t.Fail()
+			}
+			requestLog, err := logformat.ReadRootRequestLog(msg)
+			if err != nil {
+				fmt.Println(err)
+				t.Fail()
+			}
+			fmt.Println(requestLog)
+			record, err := requestLog.Record()
+			if err != nil {
+				fmt.Println(err)
+				t.Fail()
+			}
+			if record != "www2.zone.log." {
+				t.Fail()
+			}
+		}
+		pc.Close()
+	}()
+
+	logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
+	os.Remove("/tmp/test.log")
+
+	logTestConfig.Log.Format = "capnp_request"
+	logTestConfig.Log.Target = "udp"
+	logTestConfig.Log.Path = "localhost:9090"
+	h := NewHandler(&logTestConfig)
+	h.Redis.Del("*")
+	h.Redis.SAdd("redins:zones", logZone)
+	for _, cmd := range logZoneEntries {
+		err := h.Redis.HSet("redins:zones:"+logZone, cmd[0], cmd[1])
+		if err != nil {
+			log.Printf("[ERROR] cannot connect to redis: %s", err)
+			t.Fail()
+		}
+	}
+	h.Redis.Set("redins:zones:"+logZone+":config", logZoneConfig)
+	h.LoadZones()
+	tc := test.Case{
+		Qname: "www2.zone.log",
+		Qtype: dns.TypeA,
+	}
+	r := tc.Msg()
+	w := test.NewRecorder(&test.ResponseWriter{})
+	state := NewRequestContext(w, r)
+	h.HandleRequest(state)
+	h.HandleRequest(state)
+	time.Sleep(time.Millisecond * 100)
 }
