@@ -39,15 +39,15 @@ type DnsRequestHandler struct {
 }
 
 type DnsRequestHandlerConfig struct {
-	Upstream          []UpstreamConfig    `json:"upstream,omitempty"`
-	GeoIp             GeoIpConfig         `json:"geoip,omitempty"`
-	HealthCheck       HealthcheckConfig   `json:"healthcheck,omitempty"`
-	MaxTtl            int                 `json:"max_ttl,omitempty"`
-	CacheTimeout      int                 `json:"cache_timeout,omitempty"`
-	ZoneReload        int                 `json:"zone_reload,omitempty"`
-	LogSourceLocation bool                `json:"log_source_location,omitempty"`
-	Redis             uperdis.RedisConfig `json:"redis,omitempty"`
-	Log               logger.LogConfig    `json:"log,omitempty"`
+	Upstream          []UpstreamConfig    `json:"upstream"`
+	GeoIp             GeoIpConfig         `json:"geoip"`
+	HealthCheck       HealthcheckConfig   `json:"healthcheck"`
+	MaxTtl            int                 `json:"max_ttl"`
+	CacheTimeout      int                 `json:"cache_timeout"`
+	ZoneReload        int                 `json:"zone_reload"`
+	LogSourceLocation bool                `json:"log_source_location"`
+	Redis             uperdis.RedisConfig `json:"redis"`
+	Log               logger.LogConfig    `json:"log"`
 }
 
 const (

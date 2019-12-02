@@ -15,9 +15,9 @@ type GeoIp struct {
 }
 
 type GeoIpConfig struct {
-	Enable    bool   `json:"enable,omitempty"`
-	CountryDB string `json:"country_db,omitempty"`
-	ASNDB     string `json:"asn_db,omitempty"`
+	Enable    bool   `json:"enable"`
+	CountryDB string `json:"country_db"`
+	ASNDB     string `json:"asn_db"`
 }
 
 func NewGeoIp(config *GeoIpConfig) *GeoIp {

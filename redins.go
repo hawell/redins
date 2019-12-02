@@ -46,10 +46,10 @@ func handleRequest(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 type RedinsConfig struct {
-	Server    []handler.ServerConfig          `json:"server,omitempty"`
-	ErrorLog  logger.LogConfig                `json:"error_log,omitempty"`
-	Handler   handler.DnsRequestHandlerConfig `json:"handler,omitempty"`
-	RateLimit handler.RateLimiterConfig       `json:"ratelimit,omitempty"`
+	Server    []handler.ServerConfig          `json:"server"`
+	ErrorLog  logger.LogConfig                `json:"error_log"`
+	Handler   handler.DnsRequestHandlerConfig `json:"handler"`
+	RateLimit handler.RateLimiterConfig       `json:"ratelimit"`
 }
 
 func LoadConfig(path string) (*RedinsConfig, error) {

@@ -160,13 +160,13 @@ func pingCheck(ip string, timeout time.Duration) error {
 }
 
 type HealthcheckConfig struct {
-	Enable             bool                `json:"enable,omitempty"`
-	MaxRequests        int                 `json:"max_requests,omitempty"`
-	MaxPendingRequests int                 `json:"max_pending_requests,omitempty"`
-	UpdateInterval     int                 `json:"update_interval,omitempty"`
-	CheckInterval      int                 `json:"check_interval,omitempty"`
-	RedisStatusServer  uperdis.RedisConfig `json:"redis,omitempty"`
-	Log                logger.LogConfig    `json:"log,omitempty"`
+	Enable             bool                `json:"enable"`
+	MaxRequests        int                 `json:"max_requests"`
+	MaxPendingRequests int                 `json:"max_pending_requests"`
+	UpdateInterval     int                 `json:"update_interval"`
+	CheckInterval      int                 `json:"check_interval"`
+	RedisStatusServer  uperdis.RedisConfig `json:"redis"`
+	Log                logger.LogConfig    `json:"log"`
 }
 
 func NewHealthcheck(config *HealthcheckConfig, redisConfigServer *uperdis.Redis) *Healthcheck {

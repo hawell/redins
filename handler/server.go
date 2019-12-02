@@ -17,10 +17,10 @@ type TlsConfig struct {
 }
 
 type ServerConfig struct {
-	Ip       string    `json:"ip,omitempty"`
-	Port     int       `json:"port,omitempty"`
-	Protocol string    `json:"protocol,omitempty"`
-	Tls      TlsConfig `json:"tls,omitempty"`
+	Ip       string    `json:"ip"`
+	Port     int       `json:"port"`
+	Protocol string    `json:"protocol"`
+	Tls      TlsConfig `json:"tls"`
 }
 
 func loadRoots(caPath string) *x509.CertPool {

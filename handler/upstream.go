@@ -23,10 +23,10 @@ type Upstream struct {
 }
 
 type UpstreamConfig struct {
-	Ip       string `json:"ip,omitempty"`
-	Port     int    `json:"port,omitempty"`
-	Protocol string `json:"protocol,omitempty"`
-	Timeout  int    `json:"timeout,omitempty"`
+	Ip       string `json:"ip"`
+	Port     int    `json:"port"`
+	Protocol string `json:"protocol"`
+	Timeout  int    `json:"timeout"`
 }
 
 func NewUpstream(config []UpstreamConfig) *Upstream {
