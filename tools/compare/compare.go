@@ -86,7 +86,7 @@ func main() {
 		resp1, _, err1 := client.Exchange(m, *s1AddrPtr)
 		resp2, _, err2 := client.Exchange(m, *s2AddrPtr)
 		if err1 != err2 {
-			// fmt.Println(q.qname, "->", q.qtype, " : ", err1, " != ", err2)
+			fmt.Println(q.qname, "->", q.qtype, " : ", err1, " != ", err2)
 		} else if err1 == nil {
 			sort.Sort(test.RRSet(resp1.Answer))
 			sort.Sort(test.RRSet(resp1.Ns))
