@@ -2363,10 +2363,10 @@ var testCases = []*TestCase{
 		},
 	},
 	{
-		Name:           "cache stale",
-		Description:    "use stale data from cache when redis is not available",
-		Enabled:        true,
-		Config:         defaultConfig,
+		Name:        "cache stale",
+		Description: "use stale data from cache when redis is not available",
+		Enabled:     true,
+		Config:      defaultConfig,
 		Initialize: func(testCase *TestCase) (handler *DnsRequestHandler, e error) {
 			testCase.Config.Redis.Connection.WaitForConnection = false
 			testCase.Config.CacheTimeout = 1
@@ -2402,16 +2402,16 @@ var testCases = []*TestCase{
 				t.Fail()
 			}
 		},
-		Zones:          []string{"stale.com."},
-		ZoneConfigs:    []string{""},
-		Entries:        [][][]string{
+		Zones:       []string{"stale.com."},
+		ZoneConfigs: []string{""},
+		Entries: [][][]string{
 			{
 				{"www",
 					`{"a":{"ttl":300, "records":[{"ip":"3.3.3.1"}]}}`,
 				},
 			},
 		},
-		TestCases:      []test.Case{
+		TestCases: []test.Case{
 			{
 				Qname: "www.stale.com.", Qtype: dns.TypeA,
 				Answer: []dns.RR{

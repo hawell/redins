@@ -197,7 +197,7 @@ func LoadConfig(path string) (*RedinsConfig, error) {
 			WhiteList: []string{},
 		},
 	}
-	configFile, err  := os.Open(path)
+	configFile, err := os.Open(path)
 	if err != nil {
 		log.Printf("[ERROR] cannot load file %s : %s", path, err)
 		log.Printf("[INFO] loading default config")

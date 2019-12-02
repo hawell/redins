@@ -39,7 +39,6 @@ func NewRequestContext(w dns.ResponseWriter, r *dns.Msg) *RequestContext {
 		"type":          context.Type(),
 		"client_subnet": context.SourceSubnet,
 		"domain_uuid":   "",
-
 	}
 	return context
 }

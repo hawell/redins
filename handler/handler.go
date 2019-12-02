@@ -51,8 +51,8 @@ type DnsRequestHandlerConfig struct {
 }
 
 const (
-	RecordCacheSize = 1000000
-	ZoneCacheSize = 10000
+	RecordCacheSize   = 1000000
+	ZoneCacheSize     = 10000
 	CacheItemsToPrune = 100
 )
 

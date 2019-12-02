@@ -27,12 +27,12 @@ func main() {
 	maxWorkers := *MaxWorkersPtr
 	var queries []query
 	redis := uperdis.NewRedis(&uperdis.RedisConfig{
-		Address:    *redisAddrPtr,
-		Net:        "tcp",
-		DB:         0,
-		Password:   "",
-		Prefix:     "",
-		Suffix:     "_dns2",
+		Address:  *redisAddrPtr,
+		Net:      "tcp",
+		DB:       0,
+		Password: "",
+		Prefix:   "",
+		Suffix:   "_dns2",
 		Connection: uperdis.RedisConnectionConfig{
 			MaxIdleConnections:   10,
 			MaxActiveConnections: 10,
@@ -51,23 +51,22 @@ func main() {
 			if location == "@" {
 				qname = zone
 			} else {
-				qname = location+"."+zone
+				qname = location + "." + zone
 			}
-			queries = append(queries, query{qname:qname, qtype:"A"})
-			queries = append(queries, query{qname:qname, qtype:"AAAA"})
-			queries = append(queries, query{qname:qname, qtype:"CNAME"})
-			queries = append(queries, query{qname:qname, qtype:"NS"})
-			queries = append(queries, query{qname:qname, qtype:"MX"})
-			queries = append(queries, query{qname:qname, qtype:"SRV"})
-			queries = append(queries, query{qname:qname, qtype:"TXT"})
-			queries = append(queries, query{qname:qname, qtype:"PTR"})
-			queries = append(queries, query{qname:qname, qtype:"CAA"})
-			queries = append(queries, query{qname:qname, qtype:"TLSA"})
-			queries = append(queries, query{qname:qname, qtype:"SOA"})
-			queries = append(queries, query{qname:qname, qtype:"DNSKEY"})
+			queries = append(queries, query{qname: qname, qtype: "A"})
+			queries = append(queries, query{qname: qname, qtype: "AAAA"})
+			queries = append(queries, query{qname: qname, qtype: "CNAME"})
+			queries = append(queries, query{qname: qname, qtype: "NS"})
+			queries = append(queries, query{qname: qname, qtype: "MX"})
+			queries = append(queries, query{qname: qname, qtype: "SRV"})
+			queries = append(queries, query{qname: qname, qtype: "TXT"})
+			queries = append(queries, query{qname: qname, qtype: "PTR"})
+			queries = append(queries, query{qname: qname, qtype: "CAA"})
+			queries = append(queries, query{qname: qname, qtype: "TLSA"})
+			queries = append(queries, query{qname: qname, qtype: "SOA"})
+			queries = append(queries, query{qname: qname, qtype: "DNSKEY"})
 		}
 	}
-
 
 	client := &dns.Client{
 		Net:     "udp",
@@ -106,7 +105,7 @@ func main() {
 			}
 		}
 	}
-	for i := 0; i<maxWorkers; i++ {
+	for i := 0; i < maxWorkers; i++ {
 		dispatcher.AddWorker(handler)
 		count = append(count, 0)
 	}
