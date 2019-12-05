@@ -37,7 +37,7 @@ var (
 
 func handleRequest(w dns.ResponseWriter, r *dns.Msg) {
 	context := handler.NewRequestContext(w, r)
-	logger.Default.Debugf("handle request: [%d] %s %s", r.Id, context.Name(), context.Type())
+	logger.Default.Debugf("handle request: [%d] %s %s", r.Id, context.RawName(), context.Type())
 
 	if l.CanHandle(context.IP()) {
 		h.HandleRequest(context)

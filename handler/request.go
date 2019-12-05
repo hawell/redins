@@ -5,6 +5,7 @@ import (
 	"github.com/hawell/logger"
 	"github.com/miekg/dns"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -19,6 +20,8 @@ type RequestContext struct {
 
 	SourceIp     net.IP
 	SourceSubnet string
+
+	name string
 }
 
 func NewRequestContext(w dns.ResponseWriter, r *dns.Msg) *RequestContext {
@@ -30,12 +33,13 @@ func NewRequestContext(w dns.ResponseWriter, r *dns.Msg) *RequestContext {
 		},
 		StartTime: time.Now(),
 		Auth:      true,
+		name: "",
 	}
 	context.SourceIp = context.sourceIp()
 	context.SourceSubnet = context.sourceSubnet()
 	context.LogData = map[string]interface{}{
 		"source_ip":     context.SourceIp,
-		"record":        context.Name(),
+		"record":        context.RawName(),
 		"type":          context.Type(),
 		"client_subnet": context.SourceSubnet,
 		"domain_uuid":   "",
@@ -67,6 +71,23 @@ func (context *RequestContext) sourceSubnet() string {
 		}
 	}
 	return ""
+}
+
+func (context *RequestContext) RawName() string {
+	if context.name != "" {
+		return context.name
+	}
+	if context.Req == nil {
+		context.name = "."
+		return "."
+	}
+	if len(context.Req.Question) == 0 {
+		context.name = "."
+		return "."
+	}
+
+	context.name = strings.ToLower(context.Req.Question[0].Name)
+	return context.name
 }
 
 func (context *RequestContext) Response(rcode int) {

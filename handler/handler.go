@@ -147,7 +147,7 @@ func (h *DnsRequestHandler) Response(context *RequestContext, res int) {
 }
 
 func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
-	logger.Default.Debugf("[%d] start handle request - name : %s, type : %s", context.Req.Id, context.Name(), context.Type())
+	logger.Default.Debugf("[%d] start handle request - name : %s, type : %s", context.Req.Id, context.RawName(), context.Type())
 	if h.Config.LogSourceLocation {
 		sourceIP := context.SourceIp
 		_, _, sourceCountry, _ := h.geoip.GetGeoLocation(sourceIP)
@@ -156,7 +156,7 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 		context.LogData["source_asn"] = sourceASN
 	}
 
-	zoneName := h.FindZone(context.Name())
+	zoneName := h.FindZone(context.RawName())
 	if zoneName == "" {
 		h.Response(context, dns.RcodeNotAuth)
 		return
@@ -171,13 +171,13 @@ func (h *DnsRequestHandler) HandleRequest(context *RequestContext) {
 	context.LogData["domain_uuid"] = zone.Config.DomainId
 
 	loopCount := 0
-	currentQName := context.Name()
+	currentQName := context.RawName()
 	currentRecord := &Record{}
 	res := dns.RcodeSuccess
 loop:
 	for {
 		if loopCount > 10 {
-			logger.Default.Errorf("CNAME loop in request %s->%s", context.Name(), context.Type())
+			logger.Default.Errorf("CNAME loop in request %s->%s", context.RawName(), context.Type())
 			context.Answer = []dns.RR{}
 			res = dns.RcodeServerFailure
 			break loop
@@ -213,7 +213,7 @@ loop:
 				if !zone.Config.CnameFlattening {
 					context.Answer = append(context.Answer, h.CNAME(currentQName, currentRecord)...)
 				} else if h.FindZone(currentRecord.CNAME.Host) != zoneName {
-					context.Answer = append(context.Answer, h.CNAME(context.Name(), currentRecord)...)
+					context.Answer = append(context.Answer, h.CNAME(context.RawName(), currentRecord)...)
 					break loop
 				}
 				currentQName = dns.Fqdn(currentRecord.CNAME.Host)
@@ -240,7 +240,7 @@ loop:
 
 			logger.Default.Debugf("[%d] final location : %s", context.Req.Id, currentQName)
 			if zone.Config.CnameFlattening {
-				currentQName = context.Name()
+				currentQName = context.RawName()
 			}
 			var answer []dns.RR
 			switch context.QType() {
@@ -308,19 +308,19 @@ loop:
 		switch res {
 		case dns.RcodeSuccess:
 			if len(context.Answer) == 0 {
-				context.Authority = append(context.Authority, NSec(context.Name(), zone))
+				context.Authority = append(context.Authority, NSec(context.RawName(), zone))
 			}
 		case dns.RcodeNameError:
-			context.Authority = append(context.Authority, NSec(context.Name(), zone))
+			context.Authority = append(context.Authority, NSec(context.RawName(), zone))
 			res = dns.RcodeSuccess
 		}
-		context.Answer = Sign(context.Answer, context.Name(), zone)
-		context.Authority = Sign(context.Authority, context.Name(), zone)
-		context.Additional = Sign(context.Additional, context.Name(), zone)
+		context.Answer = Sign(context.Answer, context.RawName(), zone)
+		context.Authority = Sign(context.Authority, context.RawName(), zone)
+		context.Additional = Sign(context.Additional, context.RawName(), zone)
 	}
 
 	h.Response(context, res)
-	logger.Default.Debugf("[%d] end handle request - name : %s, type : %s", context.Req.Id, context.Name(), context.Type())
+	logger.Default.Debugf("[%d] end handle request - name : %s, type : %s", context.Req.Id, context.RawName(), context.Type())
 }
 
 func (h *DnsRequestHandler) Filter(name string, sourceIp net.IP, rrset *IP_RRSet) []IP_RR {
@@ -832,7 +832,7 @@ func (h *DnsRequestHandler) FindANAME(context *RequestContext, aname string, qty
 	loopCount := 0
 	for {
 		if loopCount > 10 {
-			logger.Default.Errorf("ANAME loop in request %s->%s", context.Name(), context.Type())
+			logger.Default.Errorf("ANAME loop in request %s->%s", context.RawName(), context.Type())
 			return []IP_RR{}, dns.RcodeServerFailure, 0
 		}
 		loopCount++

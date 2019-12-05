@@ -2420,6 +2420,142 @@ var testCases = []*TestCase{
 			},
 		},
 	},
+	{
+		Name:           "zone list update",
+		Description:    "test zone list update",
+		Enabled:        true,
+		Config:         defaultConfig,
+		Initialize: func(testCase *TestCase) (handler *DnsRequestHandler, e error) {
+			testCase.Config.ZoneReload = 1
+			return defaultInitialize(testCase)
+		},
+		ApplyAndVerify: func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T) {
+			{
+				_ = handler.Redis.SRem("redins:zones", testCase.Zones[0])
+				time.Sleep(time.Millisecond * 1200)
+
+				tc := testCase.TestCases[0]
+				r := tc.Msg()
+				w := test.NewRecorder(&test.ResponseWriter{})
+				state := NewRequestContext(w, r)
+				handler.HandleRequest(state)
+
+				resp := w.Msg
+
+				if err := test.SortAndCheck(resp, tc); err != nil {
+					fmt.Println("1", err, tc.Qname, tc.Answer, resp.Answer)
+					t.Fail()
+				}
+			}
+
+			{
+				_ = handler.Redis.SAdd("redins:zones", testCase.Zones[0])
+				time.Sleep(time.Millisecond * 1200)
+
+				tc := testCase.TestCases[1]
+				r := tc.Msg()
+				w := test.NewRecorder(&test.ResponseWriter{})
+				state := NewRequestContext(w, r)
+				handler.HandleRequest(state)
+
+				resp := w.Msg
+
+				if err := test.SortAndCheck(resp, tc); err != nil {
+					fmt.Println("2", err, tc.Qname, tc.Answer, resp.Answer)
+					t.Fail()
+				}
+			}
+		},
+		Zones:          []string{"zone1.zon.", "zone2.zon."},
+		ZoneConfigs:    []string{"", ""},
+		Entries:        [][][]string{
+			{
+				{"www",
+					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
+				},
+			},
+			{
+				{"www",
+					`{"a":{"ttl":300, "records":[{"ip":"2.3.4.5"}]}}`,
+				},
+			},
+		},
+		TestCases:      []test.Case{
+			{
+				Qname: "www.zone1.zon", Qtype: dns.TypeA,
+				Rcode: dns.RcodeNotAuth,
+			},
+			{
+				Qname: "www.zone1.zon.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("www.zone1.zon. 300 IN A 1.2.3.4"),
+				},
+			},
+		},
+	},
+	{
+		Name:           "IDN zones",
+		Description:    "test zone names with IDN values (internationalized domain names)",
+		Enabled:        true,
+		Config:         defaultConfig,
+		Initialize:     defaultInitialize,
+		ApplyAndVerify: defaultApplyAndVerify,
+		Zones:          []string{"ουτοπία.δπθ.gr.", "ascii.com."},
+		ZoneConfigs:    []string{"", ""},
+		Entries:        [][][]string{
+			{
+				{"@",
+					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
+				},
+				{"ουτοπία",
+					`{"a":{"ttl":300, "records":[{"ip":"2.3.4.5"}]}}`,
+				},
+			},
+			{
+				{"@",
+					`{"aname":{"location":"ουτοπία.δπθ.gr."}}`,
+				},
+				{"www",
+					`{"cname":{"ttl":300, "host":"ουτοπία.δπθ.gr."}}`,
+				},
+				{"ουτοπία",
+					`{"a":{"ttl":300, "records":[{"ip":"1.2.3.4"}]}}`,
+				},
+			},
+		},
+		TestCases:      []test.Case{
+			{
+				Qname: "ουτοπία.δπθ.gr.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("ουτοπία.δπθ.gr. 300 IN A 1.2.3.4"),
+				},
+			},
+			{
+				Qname: "ουτοπία.ουτοπία.δπθ.gr.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("ουτοπία.ουτοπία.δπθ.gr. 300 IN A 2.3.4.5"),
+				},
+			},
+			{
+				Qname: "ascii.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("ascii.com. 300 IN A 1.2.3.4"),
+				},
+			},
+			{
+				Qname: "www.ascii.com.", Qtype: dns.TypeCNAME,
+				Answer: []dns.RR{
+					test.CNAME("www.ascii.com. 300 IN CNAME ουτοπία.δπθ.gr."),
+				},
+			},
+			{
+				Qname: "ουτοπία.ascii.com.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("ουτοπία.ascii.com. 300 IN A 1.2.3.4"),
+				},
+			},
+		},
+	},
 }
 
 func center(s string, w int) string {
