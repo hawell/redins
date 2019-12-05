@@ -2350,8 +2350,30 @@ var testCases = []*TestCase{
 		Enabled:        true,
 		Config:         defaultConfig,
 		Initialize: func(testCase *TestCase) (handler *DnsRequestHandler, e error) {
+			logger.Default = logger.NewLogger(&logger.LogConfig{}, nil)
 			testCase.Config.ZoneReload = 1
-			return defaultInitialize(testCase)
+			h := NewHandler(&testCase.Config)
+			_ = h.Redis.SetConfig("notify-keyspace-events", "AKE")
+			if err := h.Redis.Del("*"); err != nil {
+				return nil, err
+			}
+			for i, zone := range testCase.Zones {
+				if err := h.Redis.SAdd("redins:zones", zone); err != nil {
+					return nil, err
+				}
+				for _, cmd := range testCase.Entries[i] {
+					err := h.Redis.HSet("redins:zones:"+zone, cmd[0], cmd[1])
+					if err != nil {
+						return nil, errors.New(fmt.Sprintf("[ERROR] cannot connect to redis: %s", err))
+					}
+				}
+				if err := h.Redis.Set("redins:zones:"+zone+":config", testCase.ZoneConfigs[i]); err != nil {
+					return nil, err
+				}
+			}
+			h.LoadZones()
+			time.Sleep(time.Second)
+			return h, nil
 		},
 		ApplyAndVerify: func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T) {
 			{
