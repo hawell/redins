@@ -104,30 +104,36 @@ func NewHandler(config *DnsRequestHandlerConfig) *DnsRequestHandler {
 
 	go h.healthcheck.Start()
 
-	if h.Redis.SubscribeEvent("redins:zones", func(channel string, event string) {
-		logger.Default.Debug("loading zones")
-		h.LoadZones()
-	}) != nil {
-		logger.Default.Warning("event notification is not available, adding/removing zones will not be instant")
-		go func() {
-			logger.Default.Debug("zone updater")
-			h.quitWG.Add(1)
-			ticker := time.NewTicker(time.Duration(h.Config.ZoneReload) * time.Second)
-			for {
-				select {
-				case <-h.quit:
-					ticker.Stop()
-					logger.Default.Debug("zone updater stopped")
-					h.quitWG.Done()
-					return
-				case <-ticker.C:
-					logger.Default.Debugf("%v", h.Zones)
+	go func() {
+		logger.Default.Debug("zone updater")
+		h.quitWG.Add(1)
+		quit := make(chan *sync.WaitGroup, 1)
+		modified := false
+		go h.Redis.SubscribeEvent("redins:zones", func() {
+			modified = true
+		}, func(channel string, data string) {
+			modified = true
+		}, func(err error) {
+			logger.Default.Error(err)
+		}, quit)
+
+		ticker := time.NewTicker(time.Duration(h.Config.ZoneReload) * time.Second)
+		for {
+			select {
+			case <-h.quit:
+				ticker.Stop()
+				logger.Default.Debug("zone updater stopped")
+				quit <- &h.quitWG
+				return
+			case <-ticker.C:
+				if modified {
 					logger.Default.Debug("loading zones")
 					h.LoadZones()
+					modified = false
 				}
 			}
-		}()
-	}
+		}
+	}()
 
 	return h
 }

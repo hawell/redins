@@ -1911,82 +1911,6 @@ var testCases = []*TestCase{
 		},
 	},
 	{
-		Name:        "zone update",
-		Description: "test zone update with redis event notification",
-		Enabled:     true,
-		Config:      defaultConfig,
-		Initialize: func(testCase *TestCase) (handler *DnsRequestHandler, e error) {
-			rd := uperdis.NewRedis(&testCase.Config.Redis)
-			if err := rd.SetConfig("notify-keyspace-events", "AK"); err != nil {
-				fmt.Println(err)
-			}
-			time.Sleep(time.Second)
-
-			testCase.Config.CacheTimeout = 1
-			h := NewHandler(&testCase.Config)
-			if err := h.Redis.Del("*"); err != nil {
-				fmt.Println(err)
-			}
-			for _, cmd := range testCase.Entries[0] {
-				err := h.Redis.HSet("redins:zones:"+testCase.Zones[0], cmd[0], cmd[1])
-				if err != nil {
-					fmt.Printf("[ERROR] cannot connect to redis: %s", err)
-					fmt.Println("1")
-					return nil, err
-				}
-			}
-			return h, nil
-		},
-		ApplyAndVerify: func(testCase *TestCase, handler *DnsRequestHandler, t *testing.T) {
-			if err := handler.Redis.SAdd("redins:zones", testCase.Zones[0]); err != nil {
-				fmt.Println(err)
-			}
-			time.Sleep(time.Millisecond * 10)
-			tc := testCase.TestCases[0]
-			r := tc.Msg()
-			w := test.NewRecorder(&test.ResponseWriter{})
-			state := NewRequestContext(w, r)
-			handler.HandleRequest(state)
-
-			resp := w.Msg
-			if resp.Rcode != dns.RcodeSuccess {
-				fmt.Println("invalid rcode, expected : RcodeSuccess, received : ", dns.RcodeToString[resp.Rcode])
-				t.Fail()
-			}
-
-			if err := handler.Redis.SRem("redins:zones", testCase.Zones[0]); err != nil {
-				fmt.Println(err)
-			}
-			time.Sleep(time.Millisecond * 1500)
-			tc = testCase.TestCases[0]
-			r = tc.Msg()
-			w = test.NewRecorder(&test.ResponseWriter{})
-			state = NewRequestContext(w, r)
-			handler.HandleRequest(state)
-
-			resp = w.Msg
-			if resp.Rcode != dns.RcodeNotAuth {
-				fmt.Println("invalid rcode, expected : RcodeNotAuth, received : ", dns.RcodeToString[resp.Rcode])
-				t.Fail()
-			}
-		},
-		Zones:       []string{"zone1.com."},
-		ZoneConfigs: []string{""},
-		Entries: [][][]string{
-			{
-				{
-					"www",
-					`{"a":{"ttl":300, "records":[{"ip":"1.1.1.1"}]}}`,
-				},
-			},
-		},
-		TestCases: []test.Case{
-			{
-				Qname: "www.zone1.com", Qtype: dns.TypeA,
-			},
-		},
-	},
-	{
 		Name:           "cname noauth",
 		Description:    "cname following should stop and return results when reaching notauth zone",
 		Enabled:        true,
@@ -2576,5 +2500,6 @@ func TestAll(t *testing.T) {
 			t.Fail()
 		}
 		testCase.ApplyAndVerify(testCase, h, t)
+		fmt.Println(strings.Repeat("-", 80))
 	}
 }
