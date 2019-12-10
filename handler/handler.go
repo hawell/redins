@@ -117,20 +117,24 @@ func NewHandler(config *DnsRequestHandlerConfig) *DnsRequestHandler {
 			logger.Default.Error(err)
 		}, quit)
 
-		ticker := time.NewTicker(time.Duration(h.Config.ZoneReload) * time.Second)
+		reloadTicker := time.NewTicker(time.Duration(h.Config.ZoneReload) * time.Second)
+		forceReloadTicker := time.NewTicker(time.Duration(h.Config.ZoneReload) * time.Second * 10)
 		for {
 			select {
 			case <-h.quit:
-				ticker.Stop()
+				reloadTicker.Stop()
+				forceReloadTicker.Stop()
 				logger.Default.Debug("zone updater stopped")
 				quit <- &h.quitWG
 				return
-			case <-ticker.C:
+			case <-reloadTicker.C:
 				if modified {
 					logger.Default.Debug("loading zones")
 					h.LoadZones()
 					modified = false
 				}
+			case <- forceReloadTicker.C:
+				modified = true
 			}
 		}
 	}()
