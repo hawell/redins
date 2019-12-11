@@ -2,7 +2,6 @@ package handler
 
 import (
 	"github.com/coredns/coredns/request"
-	"github.com/hawell/logger"
 	"github.com/miekg/dns"
 	"net"
 	"strings"
@@ -101,7 +100,7 @@ func (context *RequestContext) Response(rcode int) {
 	context.SizeAndDo(m)
 	m = context.Scrub(m)
 	if err := context.W.WriteMsg(m); err != nil {
-		logger.Default.Error("write error : ", err, " msg : ", m.String())
+		// logger.Default.Error("write error : ", err, " msg : ", m.String())
 		_ = context.W.Close()
 	}
 }
