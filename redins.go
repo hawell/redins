@@ -59,6 +59,7 @@ var redinsDefaultConfig = &RedinsConfig{
 			Ip:       "127.0.0.1",
 			Port:     1053,
 			Protocol: "udp",
+			Count:    1,
 			Tls: handler.TlsConfig{
 				Enable:   false,
 				CertPath: "",

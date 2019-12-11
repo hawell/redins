@@ -45,7 +45,8 @@ dns listening server configuration
   "server": {
     "ip": "127.0.0.1",
     "port": 1053,
-    "protocol": "udp"
+    "protocol": "udp",
+    "count": 1
   }
 }
 ~~~
@@ -53,6 +54,7 @@ dns listening server configuration
 * `ip` : ip address to bind, default: 127.0.0.1
 * `port` : port number to bind, default: 1053
 * `protocol` : protocol; can be tcp or udp, default: udp
+* `count` : number of listeners per address, default: 1
 
 ### handler
 dns query handler configuration
@@ -340,7 +342,8 @@ sample config:
   "server": {
       "ip": "127.0.0.1",
       "port": 1053,
-      "protocol": "udp"
+      "protocol": "udp",
+      "count": 1
     },
   "handler": {
     "max_ttl": 300,

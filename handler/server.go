@@ -20,6 +20,7 @@ type ServerConfig struct {
 	Ip       string    `json:"ip"`
 	Port     int       `json:"port"`
 	Protocol string    `json:"protocol"`
+	Count    int       `json:"count"`
 	Tls      TlsConfig `json:"tls"`
 }
 
@@ -55,15 +56,20 @@ func loadTlsConfig(cfg TlsConfig) *tls.Config {
 func NewServer(config []ServerConfig) []dns.Server {
 	var servers []dns.Server
 	for _, cfg := range config {
-		server := dns.Server{
-			Addr: cfg.Ip + ":" + strconv.Itoa(cfg.Port),
-			Net:  cfg.Protocol,
-			ReusePort: true,
+		if cfg.Count < 1 {
+			cfg.Count = 1
 		}
-		if cfg.Tls.Enable {
-			server.TLSConfig = loadTlsConfig(cfg.Tls)
+		for i := 0; i < cfg.Count; i++ {
+			server := dns.Server{
+				Addr:      cfg.Ip + ":" + strconv.Itoa(cfg.Port),
+				Net:       cfg.Protocol,
+				ReusePort: true,
+			}
+			if cfg.Tls.Enable {
+				server.TLSConfig = loadTlsConfig(cfg.Tls)
+			}
+			servers = append(servers, server)
 		}
-		servers = append(servers, server)
 	}
 	return servers
 }
