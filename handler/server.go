@@ -58,6 +58,7 @@ func NewServer(config []ServerConfig) []dns.Server {
 		server := dns.Server{
 			Addr: cfg.Ip + ":" + strconv.Itoa(cfg.Port),
 			Net:  cfg.Protocol,
+			ReusePort: true,
 		}
 		if cfg.Tls.Enable {
 			server.TLSConfig = loadTlsConfig(cfg.Tls)
