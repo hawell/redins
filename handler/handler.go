@@ -231,7 +231,6 @@ loop:
 			}
 			if len(currentRecord.NS.Data) > 0 && currentQName != zone.Name {
 				logger.Default.Debugf("[%d] delegation", context.Req.Id)
-				context.Auth = false
 				context.Authority = append(context.Authority, h.NS(currentQName, currentRecord)...)
 				for _, ns := range currentRecord.NS.Data {
 					glueLocation, match := zone.FindLocation(ns.Host)
@@ -244,7 +243,6 @@ loop:
 						}
 					}
 				}
-				res = dns.RcodeNotAuth
 				break loop
 			}
 

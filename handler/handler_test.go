@@ -1972,7 +1972,6 @@ var testCases = []*TestCase{
 			{
 				Qname: "glue.delegation.zon.",
 				Qtype: dns.TypeA,
-				Rcode: dns.RcodeNotAuth,
 				Ns: []dns.RR{
 					test.NS("glue.delegation.zon. 300 IN NS ns1.glue.delegation.zon."),
 					test.NS("glue.delegation.zon. 300 IN NS ns2.glue.delegation.zon."),
@@ -1985,7 +1984,6 @@ var testCases = []*TestCase{
 			{
 				Qname: "noglue.delegation.zon.",
 				Qtype: dns.TypeA,
-				Rcode: dns.RcodeNotAuth,
 				Ns: []dns.RR{
 					test.NS("noglue.delegation.zon. 300 IN NS ns1.delegated.zon."),
 					test.NS("noglue.delegation.zon. 300 IN NS ns2.delegated.zon."),
@@ -1994,7 +1992,6 @@ var testCases = []*TestCase{
 			{
 				Qname: "cname.delegation.zon.",
 				Qtype: dns.TypeA,
-				Rcode: dns.RcodeNotAuth,
 				Answer: []dns.RR{
 					test.CNAME("cname.delegation.zon. 300 IN CNAME glue.delegation.zon."),
 				},
